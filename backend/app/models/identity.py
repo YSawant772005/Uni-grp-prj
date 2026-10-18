@@ -156,6 +156,13 @@ class StudentProfile(Base, UUIDPk, TimestampMixin):
 
     profile_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    country_preferences: Mapped[list["ProfileCountryPreference"]] = relationship(
+        back_populates="profile", cascade="all, delete-orphan",
+        order_by="ProfileCountryPreference.preference_rank", lazy="selectin")
+    priorities: Mapped[list["ProfilePriority"]] = relationship(
+        back_populates="profile", cascade="all, delete-orphan",
+        order_by="ProfilePriority.priority_key", lazy="selectin")
+
 
 class ProfileCountryPreference(Base):
     """Ordered country preferences; a mandatory country is a hard constraint."""
@@ -176,6 +183,7 @@ class ProfileCountryPreference(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    profile: Mapped["StudentProfile"] = relationship(back_populates="country_preferences")
 
 
 class ProfilePriority(Base, UUIDPk, TimestampMixin):
@@ -190,6 +198,7 @@ class ProfilePriority(Base, UUIDPk, TimestampMixin):
         UniqueConstraint("profile_id", "priority_key", name="uq_profile_priority_key"),
         CheckConstraint("weight >= 0 AND weight <= 1", name="ck_profile_priorities_weight_range"),
     )
+    profile: Mapped["StudentProfile"] = relationship(back_populates="priorities")
 
 
 class AuditEvent(Base, UUIDPk):

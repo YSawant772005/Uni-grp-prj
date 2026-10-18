@@ -77,7 +77,16 @@ Update after each meaningful task with test results and commit reference.
 
 ## Phase 4 — Profile & onboarding API
 
-- [ ] GET/PUT/PATCH /profile, completeness, onboarding/complete with 8-question validation
+- [x] GET/PUT/PATCH /profile, completeness, onboarding/complete with 8-question validation
+
+### Phase 4 verification (2026-10-18)
+
+- `pytest`: 18 tests passed — own-profile auth, per-user isolation, PUT replace vs PATCH
+  merge semantics, enum/grade-scale/budget/English-score validation → field-level 422,
+  duplicate country ranks rejected, unknown country/field rejected, priority weights
+  normalized 1–5 → 0.2–1.0 (DB CHECK), onboarding sets profile_completed_at + 100% completeness.
+- Fixed during verification: relationship collections were stale after child inserts
+  (added `db.refresh`); priority weight stored normalized to satisfy `0..1` CHECK.
 
 ## Phase 5 — Eligibility & recommendation engines
 
