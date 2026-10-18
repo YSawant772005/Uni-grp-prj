@@ -88,10 +88,27 @@ Update after each meaningful task with test results and commit reference.
 - Fixed during verification: relationship collections were stale after child inserts
   (added `db.refresh`); priority weight stored normalized to satisfy `0..1` CHECK.
 
-## Phase 5 — Eligibility & recommendation engines
+## Phase 5 - Eligibility & recommendation engines
 
-- [ ] Deterministic rule evaluator (groups/operators, mandatory-unknown rule)
-- [ ] Hard constraints → fit scoring → tiers; run persistence + recommendations endpoints + explanations
+- [x] Deterministic rule evaluator (groups/operators, mandatory-unknown rule)
+- [x] Hard constraints → fit scoring → tiers; run persistence + recommendations endpoints + explanations
+
+### Phase 5 verification (2026-10-18)
+
+- `pytest`: 19 tests passed — eligibility states across all four outcomes, mandatory-unknown
+  never reported as `eligible`, insufficient grade → `ineligible` with the named requirement,
+  each evaluation returns status/evaluated value/expected/explanation, scoring renormalises
+  over evidenced dimensions only (missing → `None` + data warnings), strict totals (partial
+  cost never summed — missing tuition ≠ 0), tier margins are published-threshold gaps (no
+  admission probability anywhere), hard constraints (mandatory countries, budget ceiling with
+  currency-required 422), tier caps demote overflow but never drop, run persistence with
+  profile+filters snapshot, owner-only 404 on get/explanations/refresh, refresh creates a new
+  run while the original is preserved.
+- Added: `fx_rates` table (migration `87c762517efe`, fixed dated seed reference rates,
+  `rate > 0` CHECK) + `app/services/fx.py`; fixed living-cost estimate to sum all categories
+  (was using housing only); fixed tier-cap overflow past the final tier.
+- Endpoints per contract §5.5: POST /eligibility/evaluations, POST/GET /recommendations,
+  GET /recommendations/{id}, GET .../explanations, POST .../refresh.
 
 ## Phase 6 — Save/compare/finance/scholarships/loans/ROI/destinations
 

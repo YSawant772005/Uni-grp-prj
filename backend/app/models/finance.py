@@ -21,6 +21,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -280,3 +281,27 @@ class OfficialRuleResource(Base, UUIDPk, TimestampMixin):
     effective_to: Mapped[date | None] = mapped_column(Date)
     last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     fact_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("fact_records.id", ondelete="SET NULL"))
+
+
+class FxRate(Base, UUIDPk, TimestampMixin):
+    """Fixed dated reference FX rates seeded for the MVP (no live provider).
+
+    Used only to convert displayed cost estimates; conversions are labelled estimated
+    and always carry the rate date. Seeded rates are clearly-labelled development
+    reference points, not a claim of a live market rate.
+    """
+
+    __tablename__ = "fx_rates"
+    __table_args__ = (
+        UniqueConstraint("base_currency", "quote_currency", "rate_date",
+                         name="uq_fx_rates_pair_date"),
+        CheckConstraint("rate > 0", name="ck_fx_rates_positive"),
+        Index("ix_fx_rates_lookup", "base_currency", "quote_currency", "rate_date"),
+    )
+
+    base_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    quote_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    rate: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
+    rate_date: Mapped[date] = mapped_column(Date, nullable=False)
+    source: Mapped[str] = mapped_column(String(200), nullable=False,
+                                        default="seed_reference", server_default="seed_reference")

@@ -30,6 +30,7 @@ from app.models import (
     FactVersion,
     Field,
     FundingOpportunity,
+    FxRate,
     LivingCostFact,
     OfficialRuleResource,
     Program,
@@ -503,6 +504,31 @@ def seed_ruleset(session: Session) -> None:
         ))
 
 
+# Fixed dated reference FX rates (units of each currency per 1 EUR). Development fixture;
+# conversions built on these are labelled estimated and carry the rate date.
+FX_REFERENCE_PER_EUR = {
+    "EUR": Decimal("1.0"), "USD": Decimal("1.09"), "GBP": Decimal("0.83"),
+    "INR": Decimal("90.5"), "AUD": Decimal("1.65"), "CAD": Decimal("1.48"),
+}
+FX_RATE_DATE = date(2026, 10, 1)
+
+
+def seed_fx_rates(session: Session) -> None:
+    for base, base_val in FX_REFERENCE_PER_EUR.items():
+        for quote, quote_val in FX_REFERENCE_PER_EUR.items():
+            if base == quote:
+                continue
+            exists = session.scalar(select(FxRate).where(
+                FxRate.base_currency == base, FxRate.quote_currency == quote,
+                FxRate.rate_date == FX_RATE_DATE))
+            if exists is None:
+                session.add(FxRate(
+                    base_currency=base, quote_currency=quote,
+                    rate=(quote_val / base_val).quantize(Decimal("0.00000001")),
+                    rate_date=FX_RATE_DATE, source="seed_reference",
+                ))
+
+
 def run_seed(session: Session) -> dict[str, int]:
     roles = seed_roles(session)
     seed_demo_users(session, roles)
@@ -511,6 +537,7 @@ def run_seed(session: Session) -> dict[str, int]:
     seed_funding(session)
     seed_destinations(session)
     seed_ruleset(session)
+    seed_fx_rates(session)
     session.commit()
     counts = {
         "countries": session.query(Country).count(),

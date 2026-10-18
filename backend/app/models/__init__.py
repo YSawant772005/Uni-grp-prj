@@ -22,6 +22,7 @@ from app.models.finance import (  # noqa: F401
     CostScenario,
     CostScenarioItem,
     FundingOpportunity,
+    FxRate,
     LivingCostFact,
     LoanScenario,
     OfficialRuleResource,
