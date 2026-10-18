@@ -191,18 +191,43 @@ Update after each meaningful task with test results and commit reference.
 
 ## Phase 8 — Frontend
 
-- [ ] App shell: router, guards, layouts/nav, typed API client, stores, error handling
-- [ ] Auth screens + 8-step onboarding wizard + profile
-- [ ] Discover + program detail (evidence tabs)
-- [ ] Shortlist runs + run detail, compare, saved
-- [ ] Finance, scholarships, loans, ROI, destinations
-- [ ] Admin: review queue, fact detail, sources, jobs, audit
-- [ ] Landing, settings, privacy/terms, 404; loading/empty/error/stale states everywhere
+- [x] App shell: router, guards, layouts/nav, typed API client, stores, error handling
+- [x] Auth screens + 8-step onboarding wizard + profile
+- [x] Discover + program detail (evidence tabs)
+- [x] Shortlist runs + run detail, compare, saved
+- [x] Finance, scholarships, loans, ROI, destinations
+- [x] Admin: review queue, fact detail, sources, jobs, audit
+- [x] Landing, settings, privacy/terms, 404; loading/empty/error/stale states everywhere
+
+Summary: Vue 3 + TypeScript + Vite SPA in `frontend/` following UI_Flow_and_Routes.md.
+Hand-mirrored response types (`src/types/api.ts`); fetch client parses the error
+envelope into `ApiError{status, code, details, requestId}`, refreshes once on 401
+and replays the original request (HttpOnly cookies only, no tokens in JS); router
+guards per route meta with `safeRedirect` open-redirect sanitization; pinia stores
+for auth (localStorage session marker, no anonymous refresh probes), saved items,
+the ≤6-program compare tray (localStorage-persisted) and toasts. Views: landing/
+privacy/terms/404, login/signup, 8-step onboarding wizard (draft persisted,
+deep-linkable `?step=N`), profile, discover (URL-synced filters, server
+pagination), program detail (evidence/requirements/fees/intakes/outcomes tabs +
+explicit eligibility check), shortlist + run detail (score breakdown, excluded
+never silently dropped), compare (`?ids=` deep links), saved, finance
+(3-scenario cost estimates with currency conversion provenance), scholarships,
+loans (EMI + full amortization schedule), ROI (payback shown only when inputs
+produce a positive surplus; "unknown"/"no positive surplus" never faked),
+destinations (country/city guides with official links + staleness notes),
+settings, and the admin console (review queue, fact detail with confirmations and
+required reasons, source registry, jobs with retry, audit log). Money cells keep
+currency + period + status; missing values render as "not available", never zero.
+Status badges are text+colour keyed to backend enums. Eligibility is only ever
+shown after an explicit user action. Verification (Node 24, vue-tsc 3, eslint 10,
+vitest 5, vite 8): `npm run typecheck` clean, `npm run lint` clean, `npm test`
+21/21 passing (api error mapping, redirect sanitization, compare store),
+`npm run build` succeeds.
 
 ## Phase 9 — Verification
 
 - [ ] Backend pytest suite on fresh PostgreSQL (constraints, ownership, engines, math)
-- [ ] Frontend type-check, lint, unit tests, production build
+- [x] Frontend type-check, lint, unit tests, production build (done in Phase 8: vue-tsc/eslint/vitest/vite all clean, 21/21 tests)
 - [ ] Real integration journey (signup → onboarding → shortlist → detail → compare → save → finance → admin review)
 - [ ] docker compose build/up verification
 
