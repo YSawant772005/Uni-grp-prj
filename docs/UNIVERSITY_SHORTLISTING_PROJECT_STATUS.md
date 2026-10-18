@@ -42,12 +42,38 @@ Update after each meaningful task with test results and commit reference.
 
 ## Phase 2 — Backend core + auth
 
-- [ ] Config, error envelope + request_id middleware, health/meta endpoints
-- [ ] Auth endpoints (register/login/logout/me), JWT, roles, ownership dependencies, rate limiting
+- [x] Config, error envelope + request_id middleware, health/meta endpoints
+- [x] Auth endpoints (register/login/refresh/logout/me), JWT HttpOnly cookies, roles, rate limiting
+
+### Phase 2 verification (2026-10-18, commit `6a910b9`)
+
+- `pytest`: 16 tests passed — health/meta, error envelope + request_id on 404/401/422/429,
+  register/login/refresh/logout, cookie + bearer auth, no account enumeration
+  (identical 401 body for unknown email vs wrong password), suspended-user lockout,
+  rate limiting (429 after limit).
+- Fixed during verification: slowapi-wrapped endpoints + `from __future__ import annotations`
+  broke FastAPI body parsing (annotation globals) — documented; Starlette HTTPException
+  handler for unrouted paths.
 
 ## Phase 3 — Catalogue & discovery API
 
-- [ ] GET /programs (search/filter/sort/pagination) + detail, requirements, fees, intakes, evidence, outcomes
+- [x] GET /programs (search/filter/sort/pagination) + detail, requirements, fees, intakes, evidence, outcomes
+
+### Phase 3 verification (2026-10-18)
+
+- `pytest`: 19 tests passed — pagination envelope, country/city/field/degree/language filters,
+  substring search on program+university, unknown filter values → 422 (never silently ignored),
+  max_tuition requires currency and filters tuition ALONE within that currency,
+  deterministic sorting (name/deadline/tuition/country, nulls last for unknown tuition),
+  detail/requirements/fees/intakes/evidence/outcomes, hidden programs not listed,
+  money honesty (unknown tuition = `amount: null, status: unavailable`, never 0),
+  outcome rows carry `population_scope` + `applies_to_this_program`.
+- Seed fix: requirement/fee facts now use `entity_type='program'` (entity_id is a program UUID);
+  campuses added per university so `city` filter/display works. Existing rows normalized.
+
+## Phase 3 — Catalogue & discovery API
+
+- [x] GET /programs (search/filter/sort/pagination) + detail, requirements, fees, intakes, evidence, outcomes
 
 ## Phase 4 — Profile & onboarding API
 

@@ -22,6 +22,7 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.base import slugify
 from app.models import (
+    Campus,
     City,
     Country,
     FactEvidence,
@@ -249,6 +250,7 @@ def seed_demo_catalogue(session: Session) -> None:
     field_by_key = {f.key: f for f in session.scalars(select(Field))}
 
     unis: dict[str, University] = {}
+    campuses: dict[str, Campus] = {}
     for name, country, city_slug in DEMO_UNIVERSITIES:
         uslug = slugify(name)
         u = session.scalar(select(University).where(University.slug == uslug))
@@ -261,6 +263,17 @@ def seed_demo_catalogue(session: Session) -> None:
             session.add(u)
             session.flush()
         unis[uslug] = u
+        city = session.scalar(select(City).where(City.country_code == country, City.slug == city_slug))
+        campus = None
+        if city is not None:
+            campus = session.scalar(select(Campus).where(
+                Campus.university_id == u.id, Campus.city_id == city.id))
+            if campus is None:
+                campus = Campus(university_id=u.id, name=f"{u.canonical_name} Main Campus",
+                                city_id=city.id)
+                session.add(campus)
+                session.flush()
+        campuses[uslug] = campus
 
     for uni_slug, name, field_key, months, tuition_eur, needs_prereqs in DEMO_PROGRAMS:
         prog = session.scalar(
@@ -274,6 +287,7 @@ def seed_demo_catalogue(session: Session) -> None:
             country = unis[uni_slug].country_code
             prog = Program(
                 university_id=unis[uni_slug].id,
+                campus_id=campuses[uni_slug].id if campuses.get(uni_slug) else None,
                 country_code=country,
                 canonical_name=name,
                 slug=slugify(name),
@@ -299,9 +313,9 @@ def seed_demo_catalogue(session: Session) -> None:
             session.flush()
 
             # requirements — all linked to demo evidence; statuses are candidate/unverified
-            en_fact = make_fact(session, doc, "requirement", prog.id, "english_ielts_overall",
+            en_fact = make_fact(session, doc, "program", prog.id, "english_ielts_overall",
                                 {"value": 6.5, "unit": "band"}, "unverified")
-            grade_fact = make_fact(session, doc, "requirement", prog.id, "min_gpa",
+            grade_fact = make_fact(session, doc, "program", prog.id, "min_gpa",
                                    {"value": 3.0, "scale": "4.0"}, "unverified")
             session.add(AdmissionRequirement(
                 program_id=prog.id, requirement_type="language_test",
@@ -319,7 +333,7 @@ def seed_demo_catalogue(session: Session) -> None:
             ))
             if needs_prereqs:
                 for pk, plabel in [("calculus", "Calculus"), ("programming", "Programming")]:
-                    f = make_fact(session, doc, "requirement", prog.id, f"prereq_{pk}",
+                    f = make_fact(session, doc, "program", prog.id, f"prereq_{pk}",
                                   {"subject": pk, "min_credits": 6}, "candidate")
                     session.add(AdmissionRequirement(
                         program_id=prog.id, requirement_type="prerequisite_course",
@@ -331,7 +345,7 @@ def seed_demo_catalogue(session: Session) -> None:
 
             # fees — tuition NULL + status 'unavailable' exercises "missing is not free"
             if tuition_eur is None:
-                fee_fact = make_fact(session, doc, "fee", prog.id, "tuition_annual",
+                fee_fact = make_fact(session, doc, "program", prog.id, "tuition_annual",
                                      {"amount": None, "status": "unavailable"}, "unavailable")
                 session.add(ProgramFee(
                     program_id=prog.id, program_intake_id=intake.id, fee_type="tuition",
@@ -340,7 +354,7 @@ def seed_demo_catalogue(session: Session) -> None:
                     status="unavailable", fact_id=fee_fact.id,
                 ))
             else:
-                fee_fact = make_fact(session, doc, "fee", prog.id, "tuition_annual",
+                fee_fact = make_fact(session, doc, "program", prog.id, "tuition_annual",
                                      {"amount": str(tuition_eur), "currency": "EUR",
                                       "period": "academic_year"}, "estimated")
                 session.add(ProgramFee(
@@ -349,7 +363,7 @@ def seed_demo_catalogue(session: Session) -> None:
                     academic_year="2027-2028", student_category="international",
                     is_mandatory=True, status="estimated", fact_id=fee_fact.id,
                 ))
-            mgmt_fact = make_fact(session, doc, "fee", prog.id, "student_union_fee",
+            mgmt_fact = make_fact(session, doc, "program", prog.id, "student_union_fee",
                                   {"amount": "300", "currency": "EUR", "period": "semester"},
                                   "estimated")
             session.add(ProgramFee(
@@ -358,6 +372,9 @@ def seed_demo_catalogue(session: Session) -> None:
                 academic_year="2027-2028", is_mandatory=True, status="estimated",
                 fact_id=mgmt_fact.id,
             ))
+        elif prog.campus_id is None and campuses.get(uni_slug) is not None:
+            # backfill: programs seeded before campuses existed
+            prog.campus_id = campuses[uni_slug].id
 
 
 def seed_funding(session: Session) -> None:
@@ -515,3 +532,4 @@ if __name__ == "__main__":
 
     with SessionLocal() as s:
         print("Seed complete:", run_seed(s))
+
