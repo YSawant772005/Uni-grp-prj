@@ -112,11 +112,40 @@ Update after each meaningful task with test results and commit reference.
 
 ## Phase 6 — Save/compare/finance/scholarships/loans/ROI/destinations
 
-- [ ] Saved programs + comparisons + POST /programs/compare
-- [ ] Cost estimates (line items, low/base/high, currency/period preserved)
-- [ ] Scholarships list/detail/matches + funding opportunities
-- [ ] Loan scenarios (EMI math) + ROI scenarios (unit tested)
-- [ ] Destinations countries/cities/rules + outcomes search
+- [x] Saved programs + comparisons + POST /programs/compare
+- [x] Cost estimates (line items, low/base/high, currency/period preserved)
+- [x] Scholarships list/detail/matches + funding opportunities
+- [x] Loan scenarios (EMI math) + ROI scenarios (unit tested)
+- [x] Destinations countries/cities/rules + outcomes search
+
+### Phase 6 verification (2026-10-18)
+
+- `pytest`: 36 new tests passed (suite total **132 passed**). Saved programs are
+  idempotent with notes; compare normalizes duplicate IDs, enforces the max of 6,
+  returns money cells with status/currency/period/source (missing = null +
+  `unavailable`, never zero) and an eligibility column only for a logged-in profile;
+  saved comparisons enforce owner-only access everywhere. Cost estimates reconcile
+  totals to items, list unavailable components explicitly (excluded, not counted as
+  zero) with `components_unavailable` warnings, order low < base < high, convert on
+  request with rate value/date/source labelled `estimated`, and saving requires auth
+  and persists items (null period falls back to `other`). Loans: schedule length =
+  tenure minus moratorium, balance clears to 0, principal/interest sums reconcile
+  with each moratorium mode, zero-interest EMI exact, disclaimer "Not a loan offer",
+  validation 422s, owner-only 404s; ROI: payback math + delay, `no_positive_surplus`
+  and `unknown` report instead of fake numbers, scope/provenance disclosed, disclaimers
+  present. Destinations: country/city/rules with official URLs + freshness notes,
+  living-cost min/typical/max with year, outcomes always carry `population_scope`
+  plus a scope note.
+- Fixed genuine bugs found while testing: `cost_scenario_items.cost_type` used the
+  wrong enum (CostCategory instead of CostType) making saves violate the DB CHECK -
+  new migration `d91f2ab34c05` (applied to both DBs, `alembic check` clean); loan
+  `capitalize` moratorium interest was double-counted in `total_interest`; loan read
+  now recomputes the full schedule from stored inputs; rule rows exposed
+  `country_code` in the index.
+- Endpoints per contract 5.6/5.7/5.8: saved-programs CRUD, comparisons CRUD,
+  POST /programs/compare, cost-estimates + program cost facts, scholarships
+  (list/detail/matches), funding-opportunities, loan-scenarios, roi-scenarios,
+  destinations (countries/cities/rules), outcomes.
 
 ## Phase 7 — Admin/review API
 

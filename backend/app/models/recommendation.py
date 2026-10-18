@@ -24,7 +24,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPk
 from app.models.enums import EvalStatus, EligibilityStatus, JobStatus, enum_col
@@ -139,6 +139,10 @@ class Comparison(Base, UUIDPk, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title: Mapped[str | None] = mapped_column(String(160))
 
+    items: Mapped[list["ComparisonItem"]] = relationship(
+        back_populates="comparison", cascade="all, delete-orphan",
+        order_by="ComparisonItem.position", lazy="selectin")
+
 
 class ComparisonItem(Base):
     __tablename__ = "comparison_items"
@@ -151,3 +155,5 @@ class ComparisonItem(Base):
         Uuid, ForeignKey("programs.id", ondelete="RESTRICT"), primary_key=True
     )
     position: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+
+    comparison: Mapped["Comparison"] = relationship(back_populates="items")

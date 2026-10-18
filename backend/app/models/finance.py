@@ -26,11 +26,12 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPk
 from app.models.enums import (
     CostCategory,
+    CostType,
     CoverageType,
     FundingStatus,
     InterestDuringMoratorium,
@@ -65,6 +66,9 @@ class CostScenario(Base, UUIDPk, TimestampMixin):
     funding_gap: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     calculation_version: Mapped[str] = mapped_column(String(40), nullable=False)
 
+    items: Mapped[list["CostScenarioItem"]] = relationship(
+        back_populates="scenario", cascade="all, delete-orphan", lazy="selectin")
+
 
 class CostScenarioItem(Base, UUIDPk):
     __tablename__ = "cost_scenario_items"
@@ -76,7 +80,7 @@ class CostScenarioItem(Base, UUIDPk):
     scenario_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("cost_scenarios.id", ondelete="CASCADE"), nullable=False
     )
-    cost_type = enum_col(CostCategory)
+    cost_type = enum_col(CostType)
     amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     period = enum_col(MoneyPeriod)
@@ -88,6 +92,8 @@ class CostScenarioItem(Base, UUIDPk):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    scenario: Mapped["CostScenario"] = relationship(back_populates="items")
 
 
 class Scholarship(Base, UUIDPk, TimestampMixin):

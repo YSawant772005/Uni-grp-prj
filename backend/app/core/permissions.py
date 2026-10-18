@@ -36,6 +36,24 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
+def get_optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
+    """Returns the authenticated user when a valid session exists, else None.
+    Used by endpoints that are public but personalize when logged in."""
+    token = _extract_token(request)
+    if not token:
+        return None
+    payload = decode_token(token, "access")
+    if payload is None:
+        return None
+    try:
+        user = db.get(User, uuid.UUID(payload["sub"]))
+    except (KeyError, ValueError):
+        return None
+    if user is None or user.deleted_at is not None or user.status != UserStatus.active:
+        return None
+    return user
+
+
 def require_roles(*role_keys: str):
     async def dependency(user: User = Depends(get_current_user)) -> User:
         user_roles = {r.key if hasattr(r.key, "value") else r.key for r in user.roles}

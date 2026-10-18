@@ -44,6 +44,7 @@ from app.models.identity import (  # noqa: F401
 from app.models.ops import IngestionJob, IngestionJobItem  # noqa: F401
 from app.models.recommendation import (  # noqa: F401
     Comparison,
+    ComparisonItem,
     RecommendationItem,
     RecommendationRuleset,
     RecommendationRun,
