@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.errors import ApiError
-from app.core.permissions import get_current_user
+from app.core.permissions import get_current_user, tokens_revoked
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.session import get_db
 from app.models import User
@@ -90,12 +90,37 @@ async def refresh(request: Request, response: Response, db: Session = Depends(ge
         user = None
     if user is None or user.deleted_at is not None or user.status.value != "active":
         raise ApiError(401, "INVALID_TOKEN", "Session is invalid or expired.")
+    if tokens_revoked(user, payload):
+        raise ApiError(401, "INVALID_TOKEN", "Session is invalid or expired.")
     _set_auth_cookies(response, user)
     return _user_out(user)
 
 
+def _session_user(request: Request, db: Session) -> User | None:
+    """Best-effort resolution of the session owner from either cookie so logout
+    can revoke server-side; never raises (logout always clears cookies)."""
+    for cookie, kind in ((ACCESS_COOKIE, "access"), (REFRESH_COOKIE, "refresh")):
+        token = request.cookies.get(cookie)
+        payload = decode_token(token, kind) if token else None
+        if payload is None:
+            continue
+        try:
+            user = db.get(User, uuid.UUID(payload["sub"]))
+        except (KeyError, ValueError):
+            continue
+        if user is not None and user.deleted_at is None:
+            return user
+    return None
+
+
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(response: Response):
+async def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    user = _session_user(request, db)
+    if user is not None:
+        # second-resolution watermark (JWT iat precision) so tokens issued in
+        # the same second as logout keep working (re-login edge case)
+        user.tokens_valid_from = datetime.now(timezone.utc)
+        db.commit()
     _clear_auth_cookies(response)
 
 

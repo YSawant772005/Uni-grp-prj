@@ -20,6 +20,15 @@ def _extract_token(request: Request) -> str | None:
     return request.cookies.get("access_token")
 
 
+def tokens_revoked(user: User, payload: dict) -> bool:
+    """True when the token predates the user's latest logout (API contract §5.2:
+    logout must revoke the session server-side, not only clear cookies)."""
+    if user.tokens_valid_from is None:
+        return False
+    issued = payload.get("iat")
+    return isinstance(issued, (int, float)) and issued < int(user.tokens_valid_from.timestamp())
+
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     token = _extract_token(request)
     if not token:
@@ -32,6 +41,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     except (KeyError, ValueError):
         user = None
     if user is None or user.deleted_at is not None or user.status != UserStatus.active:
+        raise ApiError(401, "INVALID_TOKEN", "Session is invalid or expired.")
+    if tokens_revoked(user, payload):
         raise ApiError(401, "INVALID_TOKEN", "Session is invalid or expired.")
     return user
 
@@ -50,6 +61,8 @@ def get_optional_user(request: Request, db: Session = Depends(get_db)) -> User |
     except (KeyError, ValueError):
         return None
     if user is None or user.deleted_at is not None or user.status != UserStatus.active:
+        return None
+    if tokens_revoked(user, payload):
         return None
     return user
 

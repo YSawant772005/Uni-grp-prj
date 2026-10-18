@@ -54,6 +54,8 @@ class User(Base, UUIDPk, TimestampMixin):
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: server-side revocation watermark: tokens issued before this instant are rejected
+    tokens_valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     roles: Mapped[list["Role"]] = relationship(
         secondary="user_roles",

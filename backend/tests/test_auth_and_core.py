@@ -2,6 +2,7 @@
 no account enumeration, cookie auth, bearer auth and rate limiting."""
 from __future__ import annotations
 
+import time
 import uuid
 
 import pytest
@@ -127,6 +128,28 @@ class TestLoginSession:
         client.cookies.update(refresh_only)
         refreshed = client.post("/api/v1/auth/refresh")
         assert refreshed.status_code == 200 and "access_token" in refreshed.cookies
+
+    def test_logout_revokes_tokens_server_side(self, client):
+        """Contract §5.2: logout must revoke the credential server-side, not only
+        clear cookies — a captured refresh token dies with the session."""
+        email = f"user-{uuid.uuid4().hex[:8]}@example.com"
+        _register(client, email=email)
+        captured_refresh = client.cookies["refresh_token"]
+        captured_access = client.cookies["access_token"]
+        # iat has second resolution; sleep so the tokens predate the logout mark
+        time.sleep(1.1)
+        assert client.post("/api/v1/auth/logout").status_code == 204
+        client.cookies.clear()
+        client.cookies.set("refresh_token", captured_refresh)
+        assert client.post("/api/v1/auth/refresh").status_code == 401
+        client.cookies.clear()
+        client.cookies.set("access_token", captured_access)
+        assert client.get("/api/v1/auth/me").status_code == 401
+        # a fresh login after revocation must still work
+        assert client.post(
+            "/api/v1/auth/login", json={"email": email, "password": "Sup3rSecret!"}
+        ).status_code == 200
+        assert client.get("/api/v1/auth/me").status_code == 200
 
     def test_me_rejects_missing_and_bogus_tokens(self, client):
         client.cookies.clear()
