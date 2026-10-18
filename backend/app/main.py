@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,7 @@ from slowapi.errors import RateLimitExceeded  # noqa: F401  (registered handler 
 
 from app.core.config import settings
 from app.core.errors import new_request_id, register_error_handlers
+from app.core.scheduler import start_scheduler
 from app.routers.v1.auth import limiter
 from app.routers.v1.router import api_router
 
@@ -19,12 +21,21 @@ logging.basicConfig(
 )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = start_scheduler()  # None unless ENABLE_SCHEDULER=true
+    yield
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="University Shortlisting Tool API",
         version="1.0.0",
         docs_url=None if settings.is_production else "/docs",
         redoc_url=None if settings.is_production else "/redoc",
+        lifespan=lifespan,
     )
 
     app.state.limiter = limiter

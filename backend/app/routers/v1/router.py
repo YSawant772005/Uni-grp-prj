@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 
 from app.routers.v1 import (  # noqa: I001
+    admin,
     auth,
     destinations,
     finance,
@@ -21,3 +22,4 @@ api_router.include_router(recommendations.router)
 api_router.include_router(library.router)
 api_router.include_router(finance.router)
 api_router.include_router(destinations.router)
+api_router.include_router(admin.router)

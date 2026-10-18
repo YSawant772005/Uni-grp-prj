@@ -149,8 +149,45 @@ Update after each meaningful task with test results and commit reference.
 
 ## Phase 7 — Admin/review API
 
-- [ ] Review queue, fact detail/history, approve/reject/request-evidence + audit events
-- [ ] Sources registry CRUD, refresh enqueue, jobs list/retry, audit-event filter, scheduler
+- [x] Review queue, fact detail/history, approve/reject/request-evidence + audit events
+- [x] Sources registry CRUD, refresh enqueue, jobs list/retry, audit-event filter, scheduler
+
+### Phase 7 verification (2026-10-18)
+
+- `pytest`: 17 new tests passed (suite total **149 passed**); `alembic check` clean (no
+  schema changes needed). Role gates: 401 unauthenticated, 403 for students and for
+  reviewers hitting admin-only endpoints; admin reaches everything. Review queue
+  defaults to reviewable statuses (candidate/in_review/conflicted/stale), filters by
+  status/entity_type/fact_key with 422 on unknown values, paginates without overlap
+  and resolves entity display labels. Fact detail returns version history with
+  evidence excerpts + source authority/policy plus append-only review events;
+  approve verifies version + fact (409 on repeat), reject and request-evidence
+  require a reason (422) and never erase stored values, version-targeted approve
+  moves `current_version_id` while superseded versions keep their own status,
+  cross-fact version ids 404, a fact with no current version 409; every action
+  writes a `fact_review_event` and an `audit_event` carrying the request id and
+  before/after summaries. Sources: create validates enums/URL/tier (422) and is
+  audited, patch applies only allowed fields (before/after audited; immutable
+  fields like base_url rejected), refresh is refused with 403
+  `REFRESH_NOT_PERMITTED` for non-fetchable use policies (demo fixture is
+  `manual_reference`) and for disabled sources. Enqueue is idempotent (same job,
+  `reused: true`). Worker: `drain_queued_jobs` claims queued jobs
+  (`FOR UPDATE SKIP LOCKED`) and finishes them honestly as `partial` with zero
+  counters and an explicit "no candidate facts were created or published" note
+  (MVP fetch pipeline intentionally absent; never fake success), disabled sources
+  fail with the reason. Retry only from failed/cancelled (409 otherwise), resets
+  counters/error and is audited. Job detail exposes item validation errors but
+  never raw `candidate_payload`s. Audit list filters by action/actor/entity/since.
+  Scheduler starts only when `ENABLE_SCHEDULER=true` (off by default; verified both
+  branches).
+- Fixed while testing: `sources.metadata` is a reserved SQLAlchemy name - the
+  mapper exposes it as `metadata_json`; source outputs/patches now use it (plain
+  attribute access returned the MetaData object and blew up serialization), and
+  the audit `source_id` summary stringifies the UUID for JSONB.
+- Endpoints per contract 5.10: GET /admin/review-queue, GET/POST
+  /admin/facts/{id}(-/approve/-/reject/-/request-evidence), GET/POST
+  /admin/sources, GET/PATCH /admin/sources/{id}, POST refresh, GET/POST
+  /admin/jobs(-/{id}/retry), GET /admin/audit-events.
 
 ## Phase 8 — Frontend
 
