@@ -1,6 +1,7 @@
 """All ORM models in dependency order so Alembic sees the full metadata."""
 from app.db.base import Base
 from app.models import catalogue, evidence, finance, identity, ops, recommendation, reference  # noqa: F401
+from app.models.enums import *  # noqa: F401,F403  (re-export shared enums)
 from app.models.catalogue import (  # noqa: F401
     AdmissionRequirement,
     Campus,

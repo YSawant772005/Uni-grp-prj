@@ -22,7 +22,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPk
 from app.models.enums import (
@@ -54,6 +54,14 @@ class User(Base, UUIDPk, TimestampMixin):
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    roles: Mapped[list["Role"]] = relationship(
+        secondary="user_roles",
+        primaryjoin="User.id == UserRole.user_id",
+        secondaryjoin="Role.id == UserRole.role_id",
+        lazy="selectin",
+        viewonly=True,
+    )
 
 
 class Role(Base, UUIDPk, TimestampMixin):

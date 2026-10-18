@@ -31,6 +31,16 @@ def _truncate_all(session: Session) -> None:
 
 
 @pytest.fixture()
+def client():
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture()
 def db():
     assert "_test" in settings.database_url, "tests require a *_test database"
     session = SessionLocal()
