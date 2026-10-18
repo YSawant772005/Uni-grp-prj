@@ -226,10 +226,41 @@ vitest 5, vite 8): `npm run typecheck` clean, `npm run lint` clean, `npm test`
 
 ## Phase 9 — Verification
 
-- [ ] Backend pytest suite on fresh PostgreSQL (constraints, ownership, engines, math)
+- [x] Backend pytest suite on fresh PostgreSQL (constraints, ownership, engines, math)
 - [x] Frontend type-check, lint, unit tests, production build (done in Phase 8: vue-tsc/eslint/vitest/vite all clean, 21/21 tests)
-- [ ] Real integration journey (signup → onboarding → shortlist → detail → compare → save → finance → admin review)
-- [ ] docker compose build/up verification
+- [x] Real integration journey (signup → onboarding → shortlist → detail → compare → save → finance → admin review)
+- [x] docker compose build/up verification
+
+Summary: backend re-run against `uni_shortlist_test` (PostgreSQL 16): **149
+passed**, `alembic check` reports no schema drift. Fixed the demo seeds:
+`admin@demo.local` / `student@demo.local` failed pydantic `EmailStr` (`.local`
+has no valid TLD) so the documented demo accounts could not log in - now
+`admin@example.com` / `student@example.com` (test fixture updated to match);
+login journey verified with the seeded admin. Frontend: `typecheck`, `lint`,
+`test` (21/21) and `build` all clean after Phase 8 fixes, plus `tsc -p
+tsconfig.node.json` for the vite config. Docker: added the missing
+`frontend/Dockerfile` (multi-stage `dev` = vite dev server, `prod` = NGINX
+serving the built bundle) and `.dockerignore`; compose now seeds on API startup
+(`alembic upgrade head && python -m app.db.seed` - `run_seed` is fully
+idempotent); renamed the compose env var to `VITE_API_BASE` (matching the
+client) and added `VITE_PROXY_TARGET` so the dev container proxies `/api` to
+the `api` service by name; NGINX host port is now `${WEB_PORT:-8080}` because
+this machine reserves 8080/8081 in Windows' excluded port ranges (local `.env`
+uses 8180, added to CORS origins; `.env` generated from `.env.example` with a
+random JWT secret, gitignored). Verified `docker compose build` (api, web,
+nginx images) and `docker compose up -d`: migrations run, seed loads (76 fact
+records), uvicorn starts. Full end-to-end journey script
+(`scripts/integration-journey.ps1`) through NGINX on :8180: **40/40 steps
+passed** - SPA routes serve through `try_files`, register/onboarding/completeness,
+program list+detail+requirements+fees+evidence+outcomes, recommendation run +
+explanations, explicit eligibility evaluation, compare, saved programs, saved
+comparison, cost estimate, loan + ROI scenarios, scholarship matches,
+destinations, outcomes search, logout/login, admin review queue + fact detail +
+request-evidence (audited), sources, jobs, audit events, and protected routes
+returning 401 after logout. Vite dev server (:5173) serves the SPA and proxies
+`/api` into the container network. (Two 422s during the first journey run were
+bugs in the journey script's enum values, not the app - the frontend's option
+constants were audited against `backend/app/models/enums.py` and match exactly.)
 
 ## Blockers / open items
 

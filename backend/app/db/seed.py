@@ -110,9 +110,11 @@ def seed_demo_users(session: Session, roles: dict[str, Role]) -> None:
     if not settings.seed_demo_data:
         return
     password = hash_password(DEMO_PASSWORD_DEFAULT)
+    # Pydantic EmailStr rejects `.local` (no valid TLD), which would make the
+    # demo accounts unable to log in through the API.
     for email, name, role_keys in [
-        ("admin@demo.local", "Demo Admin", ["admin", "reviewer"]),
-        ("student@demo.local", "Demo Student", ["student"]),
+        ("admin@example.com", "Demo Admin", ["admin", "reviewer"]),
+        ("student@example.com", "Demo Student", ["student"]),
     ]:
         user = session.scalar(select(User).where(User.email == email))
         if user is None:

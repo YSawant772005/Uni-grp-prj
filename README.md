@@ -15,7 +15,7 @@ Progress is tracked only in `docs/UNIVERSITY_SHORTLISTING_PROJECT_STATUS.md`.
 
 ```bash
 cp .env.example .env         # edit secrets
-docker compose up --build    # db + api + web (vite dev) on http://localhost:8080 (nginx)
+docker compose up --build    # db + api + web (vite dev on :5173) + nginx SPA on http://localhost:8080 (override host port with WEB_PORT in .env)
 ```
 
 ## Quick start (local dev)
@@ -41,5 +41,8 @@ Auth: JWT access + refresh tokens issued as HttpOnly, SameSite=Lax cookies (see 
 
 ```bash
 cd backend && pytest          # integration tests need DATABASE_URL (disposable DB!)
-cd frontend && npm run test && npm run type-check && npm run build
+cd frontend && npm run test && npm run typecheck && npm run build
+
+# end-to-end API journey through NGINX (requires: docker compose up -d; reads WEB_PORT from .env)
+powershell -File scripts/integration-journey.ps1
 ```

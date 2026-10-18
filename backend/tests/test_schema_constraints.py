@@ -29,7 +29,7 @@ def _first_program(db) -> Program:
 
 
 def _first_user(db) -> User:
-    return db.query(User).filter(User.email == "student@demo.local").one()
+    return db.query(User).filter(User.email == "student@example.com").one()
 
 
 class TestForeignKeys:
