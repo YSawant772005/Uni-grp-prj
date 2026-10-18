@@ -262,6 +262,43 @@ returning 401 after logout. Vite dev server (:5173) serves the SPA and proxies
 bugs in the journey script's enum values, not the app - the frontend's option
 constants were audited against `backend/app/models/enums.py` and match exactly.)
 
+## Release-readiness audit (2026-10-19)
+
+Evidence-based audit of the completed implementation (no redesign):
+
+- **Verification rerun (all green):** backend **150/150 tests pass**;
+  `alembic check` clean at head `590ecfb9963d`; frontend `typecheck`, `lint`,
+  `test` (21/21) and `build` clean; integration journey **40/40 steps twice**
+  (before and after the fix below) through NGINX :8180; all four containers up,
+  PostgreSQL data persists across API restarts, seed idempotent, vite dev proxy
+  healthy.
+- **Auth/authz matrix verified:** admin endpoints 200 for admin, 403 for
+  student, 401 anonymous; public catalogue open; cookies HttpOnly + SameSite=Lax
+  with refresh path-scoped to `/api/v1/auth`; auth rate limit returns 429
+  `RATE_LIMITED` from attempt 10; CORS rejects unknown origins (400) and echoes
+  allowed ones; `.env` gitignored, no secrets tracked or hardcoded.
+- **Defect found and fixed (commit `09173ca`):** `POST /auth/logout` only
+  cleared cookies - a refresh token captured before logout kept minting access
+  tokens for up to 14 days, contradicting API_Contract §5.2 ("End
+  session/revoke selected credential"). Fix: `users.tokens_valid_from`
+  revocation watermark (migration `590ecfb9963d`) set on logout and enforced in
+  `get_current_user`, `get_optional_user` and `/auth/refresh`; second-resolution
+  comparison keeps same-second re-login working. Regression test
+  `test_logout_revokes_tokens_server_side`; verified live (replay after logout
+  401 for both token types, fresh re-login 200).
+- **Minor fix (same commit `09173ca`):** added missing `backend/.dockerignore`
+  - `docker compose build api` was shipping `.venv`/caches as build context.
+- **Data integrity spot-checked:** immutable fact-version chain with
+  version/confidence check constraints; eligibility returns
+  `unknown_needs_review` (never zero/passed) for missing data; loan/ROI math in
+  Decimal with currency+assumptions preserved and disclosed; scenarios
+  recompute from their own stored inputs.
+- **Scope parity:** 70 implemented routes match the contract; password-reset,
+  reviews, export/deletion are explicitly deferred from MVP (top of this file)
+  and have no inert UI controls. Production deployment still requires
+  `ENVIRONMENT=production`, `COOKIE_SECURE=true` and real secrets - not
+  configured here, so **not production-ready**; ready for local demo/portfolio.
+
 ## Blockers / open items
 
 - `docs/refernce image.png` could not be viewed (model limitation): UI follows documented design in UI_Flow_and_Routes.md + implementation plan §12.
