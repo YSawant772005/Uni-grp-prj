@@ -11,23 +11,34 @@ Update after each meaningful task with test results and commit reference.
 - **Fact links:** polymorphic `fact_records.entity_id` with service-level validation (allowed by §11; simpler for MVP).
 - **Repository layer:** query logic lives in `app/services/*`; routers stay thin. No separate per-table repository package (avoids duplicate indirection).
 - **Deferred from MVP (hidden in UI, per UI_Flow §5 note):** password-reset email flow, transcript/resume uploads+extraction, student reviews, notifications, account export/deletion, temporary public compare.
-- **Currency FX:** fixed reference table of dated rates seeded as clearly-labelled planning rates; no live FX provider in MVP.
-- **Seed data:** all catalogue rows from fixtures are labelled `unverified`/`estimated` with synthetic source URLs marked `demo_fixture=true`; never presented as official verified facts.
+- **Enum convention:** checked VARCHAR columns via SQLAlchemy `Enum(native_enum=False, create_constraint=True)` — one convention for the whole schema.
+- **Seed data:** all catalogue rows are synthetic fixtures, flagged `external_identifiers.demo_fixture`, sources named "DEMO FIXTURE" with `example.invalid` URLs; fact statuses limited to candidate/unverified/estimated/unavailable — never `verified`.
 
 ## Phase 0 — Bootstrap
 
-- [ ] Git repo, .gitignore, .env.example, README, docker-compose (db/api/web/nginx), folder layout
-- [ ] This status tracker
+- [x] Git repo, .gitignore, .env.example, README, docker-compose (db/api/web/nginx), folder layout
+- [x] This status tracker
+- Verified: `docker compose up -d db` starts postgres:16-alpine (healthy) on host port 5433.
 
 ## Phase 1 — Database foundation
 
-- [ ] SQLAlchemy models: reference (countries, cities, fields), catalogue (universities, campuses, programs, intakes, requirements, fees)
-- [ ] Evidence/provenance models (sources, source_documents, fact_records, fact_versions, fact_evidence, fact_review_events)
-- [ ] Identity/profile models (users, roles, user_roles, student_profiles, country prefs, priorities)
-- [ ] Recommendation models (rulesets, runs, items, requirement_evaluations) + saved/comparisons
-- [ ] Finance models (cost scenarios, scholarships + rules/links, funding opportunities, loan/ROI scenarios) + outcomes, living costs, official rules, audit, ingestion jobs
-- [ ] Alembic init + initial migration; fresh-DB upgrade verified
-- [ ] Seed reference data + labelled demo fixtures
+- [x] SQLAlchemy models: reference (countries, cities, fields), catalogue (universities, campuses, programs, intakes, requirements, fees)
+- [x] Evidence/provenance models (sources, source_documents, fact_records, fact_versions, fact_evidence, fact_review_events)
+- [x] Identity/profile models (users, roles, user_roles, student_profiles, country prefs, priorities, audit_events)
+- [x] Recommendation models (rulesets, runs, items, requirement_evaluations) + saved/comparisons
+- [x] Finance models (cost scenarios, scholarships + rules/links, funding, loan/ROI scenarios, outcomes, living costs, official rules) + ingestion jobs
+- [x] Alembic init + initial migration `2ce53c75ab26_initial_schema.py`
+- [x] Seed reference data + labelled demo fixtures (`app/db/seed.py`, idempotent)
+
+### Phase 1 verification results (2026-10-18)
+
+- Models: 42 tables registered (reviews table deferred with MVP scope).
+- Fresh `uni_shortlist_test` DB (postgres:16 container): `alembic upgrade head` created 43 tables (42 + `alembic_version`), 78 foreign keys, 29 model CHECK constraints (+ per-column enum checks), 14 unique constraints, 35 indexes.
+- Fixed during verification: circular FK `fact_records.current_version_id → fact_versions.id` was silently omitted by autogenerate (`use_alter`) — added explicit `op.create_foreign_key` (+ matching `drop_constraint` in downgrade).
+- `alembic downgrade base` → 1 table (`alembic_version`); `alembic upgrade head` again OK; `alembic check` → "No new upgrade operations detected" (no model↔DB drift).
+- Seed run twice on test DB: identical counts (7 countries, 7 fields, 6 universities, 9 programs, 18 fees, 28 requirements, 1 scholarship, 27 living-cost facts, 1 ruleset, 76 fact_records) — idempotent.
+- `pytest` (against fresh Postgres test DB): **24 passed** — FK enforcement, uniqueness (program identity, email, saved_programs, fact logical identity, fact version numbers), money rules (amount requires currency+period, missing amount stays NULL, negative rejected), profile grade-scale + budget-basis checks, intake date ordering, reject-requires-reason, seed honesty (no `verified` facts, demo flags, one unknown-tuition case), ownership scoping.
+- Dev DB (`uni_shortlist`): migrated + seeded successfully.
 
 ## Phase 2 — Backend core + auth
 
