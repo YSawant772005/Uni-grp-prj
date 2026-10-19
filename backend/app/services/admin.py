@@ -424,6 +424,22 @@ def enqueue_refresh(db: Session, user: User, source_id: uuid.UUID,
     source = db.get(Source, source_id)
     if source is None:
         raise ApiError(404, "NOT_FOUND", "Source not found.")
+    return _enqueue(db, user, source, request_id)
+
+
+def enqueue_refresh_by_key(db: Session, user: User, source_key: str,
+                           request_id: str | None) -> dict:
+    """Trigger ingestion by its stable registry key (country-agnostic)."""
+    source = db.scalar(select(Source).where(
+        Source.metadata_json["adapter_key"].astext == source_key))
+    if source is None:
+        raise ApiError(404, "NOT_FOUND",
+                       f"No source is registered for key {source_key!r}. Run the CLI "
+                       "'sources' command to see the registered connectors.")
+    return _enqueue(db, user, source, request_id)
+
+
+def _enqueue(db: Session, user: User, source: Source, request_id: str | None) -> dict:
     if source.allowed_use_policy not in REFRESHABLE_POLICIES:
         raise ApiError(403, "REFRESH_NOT_PERMITTED",
                        "This source's use policy does not permit automated refresh. "
@@ -458,6 +474,9 @@ def _job_out(job: IngestionJob) -> dict:
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
         "records_seen": job.records_seen, "records_created": job.records_created,
         "records_updated": job.records_updated, "records_rejected": job.records_rejected,
+        "records_unchanged": job.records_unchanged,
+        "records_review_required": job.records_review_required,
+        "checkpoint": job.checkpoint,
         "error_summary": job.error_summary, "worker_version": job.worker_version,
         "created_by_user_id": job.created_by_user_id,
         "created_at": job.created_at.isoformat() if job.created_at else None,

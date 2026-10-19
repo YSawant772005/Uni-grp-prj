@@ -27,6 +27,9 @@ class IngestionJob(Base, UUIDPk):
     records_created: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
     records_updated: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
     records_rejected: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
+    records_unchanged: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
+    records_review_required: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0", default=0)
+    checkpoint: Mapped[dict | None] = mapped_column(JSONB)
     error_summary: Mapped[str | None] = mapped_column(Text)
     worker_version: Mapped[str | None] = mapped_column(String(40))
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(

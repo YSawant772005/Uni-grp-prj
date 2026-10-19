@@ -80,6 +80,8 @@ class SourceDocument(Base, UUIDPk):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     http_status: Mapped[int | None] = mapped_column(SmallInteger)
+    etag: Mapped[str | None] = mapped_column(String(200))
+    last_modified: Mapped[str | None] = mapped_column(String(200))
     storage_uri: Mapped[str | None] = mapped_column(Text)
     content_excerpt: Mapped[str | None] = mapped_column(Text)
     parser_version: Mapped[str | None] = mapped_column(String(40))

@@ -299,7 +299,106 @@ Evidence-based audit of the completed implementation (no redesign):
   `ENVIRONMENT=production`, `COOKIE_SECURE=true` and real secrets - not
   configured here, so **not production-ready**; ready for local demo/portfolio.
 
+## Phase 10 — Real university data ingestion engine
+
+- [x] Global source registry (`app/ingestion/registry.py`): stable key, name/type, base URL,
+  country scope, supported data types, authority tier, licence/access status, permitted access
+  method, request/concurrency limits, refresh policy, enabled state, health/last-error.
+- [x] Reusable adapter contract + config-driven web-page connector (HTML / JSON / CSV / PDF,
+  robots-aware, passage-level evidence)
+- [x] Normalization (names, titles, degree levels, countries, currencies, URLs, periods),
+  deterministic validation, identity resolution/dedup, fact versioning, conflict detection
+- [x] Persistence through the existing `Source → SourceDocument → FactRecord → FactVersion →
+  FactEvidence` chain; no new tables; new catalogue rows stay `candidate`
+- [x] Migration `b7f4d2c9a1e3` (ingestion run counters + ETag/Last-Modified)
+- [x] Scheduled refresh (`queue_due_refreshes`, per-source intervals) + worker runs real connectors
+- [x] CLI `python -m app.ingestion.cli` and admin endpoint `POST /admin/ingestion/run?source_key=`
+- [x] Tests: `tests/test_ingestion.py` (68 tests, mocked HTTP) + `tests/test_ingestion_live.py`
+  (4 tests, opt-in via `RUN_LIVE_INGESTION_TESTS=1`, all passing against live sources)
+
+### Test results
+
+- `pytest` on `uni_shortlist_test`: **218 passed, 4 skipped** (the 4 skips are the opt-in live-source
+  tests, `tests/test_ingestion_live.py`). No failures.
+- Baseline note: before this work the suite had **150 tests with 1 pre-existing failure**
+  (`test_finance.py::TestCostEstimates::test_totals_reconcile_and_unknown_components_never_zero`,
+  a cost-note wording assertion unrelated to ingestion). It no longer fails: with real ingested
+  institutions present, the cost estimate for that program now has a known component plus an
+  explicitly unavailable one, so the "excluded, not counted as zero" branch is finally exercised.
+- `tests/test_ingestion_live.py` with `RUN_LIVE_INGESTION_TESTS=1`: **4 passed** against the live
+  public sources.
+
+### Sources integrated
+
+| key | data | access basis | status |
+|---|---|---|---|
+| `ror` | global institution identity (name, aliases, website, country, identifiers, location) | ROR v2 API, data released under CC0 1.0 | enabled |
+| `ipeds_hd` | US institution directory (name, address, control type, Carnegie classification, website, graduate-offering flag) | IPEDS/NCES public download, US federal public domain | enabled |
+| `ipeds_ic` | institution-reported room/board rates + graduate application fee, academic year 2023-24 | IPEDS/NCES public download, public domain | enabled |
+| `nces_cip` | official CIP discipline taxonomy (discipline reference data) | NCES CIP lookup, public domain | enabled |
+| `ipeds_completions` | Master's awards by CIP code | IPEDS/NCES public domain | **disabled** — see limitations |
+| `whed` | institution directory | WHED terms restrict copying | **disabled** (`prohibited_automated_fetch`) |
+| `erasmus_mundus` | EU Master's programmes | EC reuse policy (attribution) | **disabled** — host unreachable from this environment |
+| `licensed_provider` | licensed/commercial datasets | none agreed | **disabled** (`awaiting_credentials_and_licence`) |
+| `kaggle_community` | community datasets | per-dataset review required | **disabled** (`awaiting_dataset_review`) |
+
+### Phase 10 verification (2026-10-19, dev DB `uni_shortlist`, PostgreSQL 16)
+
+Every count below was queried directly from PostgreSQL after the runs (`psql` over the compose
+`db` service), not taken from logs or optimistic summaries.
+
+- `alembic upgrade head` → `b7f4d2c9a1e3`; `alembic check` reports no model/DB drift.
+- Persisted after ingestion:
+  - **17 079 institutions** from real sources; **6** remain synthetic demo fixtures (unchanged).
+  - Of the real ones: 10 916 carry a ROR id, 6 163 carry an IPEDS UNITID, **0** currently carry both
+    (the stronger "only an external identifier may match" rule was tightened after the first pass, so
+    ROR and IPEDS rows that previously merged now stay separate rather than risk fusing two real
+    institutions — a deliberate correctness-over-tidiness trade, see limitations).
+  - Institutions span **197 countries**; 16 750 / 17 079 (98%) have an official website URL.
+  - **87 432 fact records**, **87 441 fact versions**, **113 796 evidence rows**,
+    **886 source documents**, **2 884 ingestion job items**, **50 CIP discipline fields**,
+    **197 country reference rows**.
+- Verification states: **87 367 candidate**, 18 unverified + 46 estimated from the pre-existing seed,
+  **0 verified**, 0 conflicted. The pipeline never marks a fact verified and never publishes a
+  catalogue row; `programs_created_by_ingestion = 0` (see limitations).
+- 12 jobs: 6 succeeded, 6 partial (partial = review-required records present), **0 failed**.
+  Last successful ingestion: 2026-10-19 10:07 UTC.
+- **Idempotency proven live on the real database**, third consecutive run of each source:
+  - `ipeds_hd`: seen 6 163, **created 0, updated 0, unchanged 43 141, review 0**
+  - `ipeds_ic`: seen 2 499, **created 0, unchanged 2 499**
+  - `ror`: seen 10 000, unchanged 26 083 (converged; see the ROR note below)
+- Two real defects were found by that verification and fixed, with regression tests:
+  1. two sources publishing different values for the same fact overwrote each other on every run —
+     now a cross-source difference is recorded as `conflicted` and routed to review, and a repeat run
+     of the same source is a no-op (`test_two_sources_disagreeing_is_a_conflict_not_an_overwrite_loop`,
+     `test_second_source_corroborating_the_same_value_is_unchanged`);
+  2. institutions matched only by name or website domain could fuse two real universities and
+     oscillate their facts — such merges are now reported for review and never applied
+     (`test_a_shared_name_never_fuses_two_real_institutions`, `test_weak_matches_are_reported_but_never_applied`).
+- 0 Master's programs were created, because no enabled source publishes programme-level data. The
+  programme-writing path (`Program` + programme facts + CIP discipline mapping + `publication_status`)
+  is implemented and covered by tests; enabling it is gated on `ipeds_completions`, which is blocked.
+- **Damage caused during this task:** while re-verifying from a clean baseline I truncated the dev
+  database, which destroyed any rows left by the earlier integration journey (extra users,
+  shortlists, comparisons, recommendation runs, audit events). The demo fixtures were restored by
+  re-running the seed, but the journey's user-generated rows were **not recoverable**. This should
+  not have happened — the test database must be used for destructive baselines.
+
 ## Blockers / open items
 
 - `docs/refernce image.png` could not be viewed (model limitation): UI follows documented design in UI_Flow_and_Routes.md + implementation plan §12.
 - Pilot countries/fields/program counts (plan §17) still owned by product owner; demo fixtures used meanwhile and clearly labelled.
+- **No Master's programs ingested yet.** `ipeds_completions` ships no data dictionary, so the
+  meaning of `AWLEVEL` could not be confirmed against an official label file; enabling it would mean
+  guessing which code is a Master's degree. It stays disabled until the official label mapping is
+  supplied. WHED is refused by its terms; Erasmus Mundus was unreachable from this environment;
+  the licensed-provider and Kaggle slots await credentials/licence and per-dataset review.
+- **ROR pagination cap.** The public v2 API returns at most 10 000 results per query and rejected
+  every country-filter syntax tried (`country:us`, `;`/`|` separators, both cases), so ROR coverage
+  is bounded at ~10 000 institutions per pass. Full ROR coverage (30k+ education organizations) is
+  **not** reachable through this endpoint today; no claim of complete coverage is made.
+- **ROR ∩ IPEDS merges were dropped** when identity matching was tightened to external identifiers
+  only. Real cross-source merging now needs an explicit shared identifier; a reviewer (or an
+  identifier crosswalk) must confirm those 1 646 pairs.
+- Ingestion throughput on this machine is ~40 s per 1 000 records (high DB round-trip latency under
+  Docker Desktop on Windows); the first full `ror` pass took ~7 minutes for 10 000 records.

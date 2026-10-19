@@ -37,6 +37,25 @@ npm run dev                   # http://localhost:5173, proxies /api to :8000
 
 Auth: JWT access + refresh tokens issued as HttpOnly, SameSite=Lax cookies (see `backend/app/core/security.py`).
 
+## Real-data ingestion
+
+The catalogue is filled from registered, permissively licensed public sources by
+the ingestion engine in `backend/app/ingestion/`. Nothing is ever invented: a
+value that a source does not publish stays unknown.
+
+```bash
+cd backend
+python -m app.ingestion.cli sources                  # registered connectors + licence/status
+python -m app.ingestion.cli run ror --dry-run --limit 50   # validate without writing
+python -m app.ingestion.cli run ipeds_hd            # real import
+python -m app.ingestion.cli run-all
+python -m app.ingestion.cli due --enqueue            # queue refreshes whose interval elapsed
+python -m app.ingestion.cli verify                  # query PostgreSQL for actual counts
+```
+
+Admins can also queue a refresh with `POST /api/v1/admin/ingestion/run?source_key=<key>`;
+the APScheduler worker (`ENABLE_SCHEDULER=true`) picks it up.
+
 ## Tests
 
 ```bash

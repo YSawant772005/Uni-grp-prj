@@ -14,6 +14,9 @@ venv/
 htmlcov/
 .coverage
 
+# downloaded source datasets (never commit raw source data)
+.ingestion_cache/
+
 # node
 node_modules/
 dist/

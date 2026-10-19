@@ -128,6 +128,15 @@ async def enqueue_refresh(source_id: uuid.UUID, request: Request,
                                  getattr(request.state, "request_id", None))
 
 
+@router.post("/admin/ingestion/run")
+async def trigger_ingestion(request: Request,
+                            source_key: str = Query(..., min_length=1, max_length=120),
+                            db: Session = Depends(get_db), user: User = ADMIN):
+    """Queue a refresh for a registered connector by its stable source key."""
+    return admin.enqueue_refresh_by_key(db, user, source_key,
+                                        getattr(request.state, "request_id", None))
+
+
 @router.get("/admin/jobs")
 async def list_jobs(status: str | None = Query(None),
                     job_type: str | None = Query(None),

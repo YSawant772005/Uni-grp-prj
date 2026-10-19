@@ -415,8 +415,8 @@ class TestSourcesAndJobs:
         assert drain_queued_jobs() == 1
 
         detail = client.get(f"/api/v1/admin/jobs/{job['id']}").json()
-        assert detail["status"] == "partial"  # not "succeeded": no fetch pipeline in MVP
-        assert detail["worker_version"] == "mvp-worker-1"
+        assert detail["status"] == "partial"  # not "succeeded": this source has no connector
+        assert detail["worker_version"] == "ingestion-worker-1"
         assert detail["records_seen"] == 0 and detail["records_created"] == 0
         assert "no candidate facts" in detail["error_summary"]
         assert detail["started_at"] and detail["finished_at"]
