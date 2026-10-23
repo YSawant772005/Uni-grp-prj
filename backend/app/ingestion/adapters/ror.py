@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from decimal import Decimal, InvalidOperation
 from typing import Iterator
+from urllib.parse import urlencode, urlsplit
 
 from app.ingestion.adapters.base import RunContext, SourceAdapter
 from app.ingestion.http import FetchError
@@ -28,45 +29,89 @@ from app.ingestion.normalize import (
 from app.ingestion.types import AdapterBatch, CandidateFact, CandidateInstitution
 
 API = "https://api.ror.org/v2/organizations"
-TYPE_FILTER = "types:education"
+EDUCATION_QUERY = "types:education"
+ROR_API_MAX_PAGES = 500
 
 
 class RorAdapter(SourceAdapter):
     source_key = "ror"
 
     def iter_batches(self, ctx: RunContext) -> Iterator[AdapterBatch]:
-        emitted = 0
-        for page in range(1, ctx.max_pages + 1):
-            url = f"{API}?filter={TYPE_FILTER}&page={page}"
-            try:
-                result = ctx.fetcher.get(url)
-            except FetchError as exc:
-                if exc.status in (400, 404) or exc.permanent:
-                    return  # end of the filtered result set, or a permanent refusal
-                raise
+        if ctx.query:
+            url = f"{API}?{urlencode({'query': ctx.query})}"
+            result = ctx.fetcher.get(url)
             payload = json.loads(result.text())
-            items = payload.get("items") or []
-            if not items:
-                return
-            institutions = [self._to_institution(item, page) for item in items]
-            institutions = [i for i in institutions if i is not None]
-            if ctx.countries:
-                wanted = {c.upper() for c in ctx.countries}
-                institutions = [i for i in institutions if (i.country_code or "") in wanted]
-            remaining = None if ctx.max_records is None else ctx.max_records - emitted
-            if remaining is not None:
-                if remaining <= 0:
-                    return
-                institutions = institutions[:remaining]
+            candidates = [self._to_institution(item, 1) for item in payload.get("items") or []]
+            exact = [candidate for candidate in candidates if candidate and
+                     (name_key(candidate.name) == name_key(ctx.query) or
+                      any(name_key(alias) == name_key(ctx.query) for alias in candidate.aliases))]
+            if ctx.max_records is not None:
+                exact = exact[:ctx.max_records]
             from app.ingestion.types import SourceDoc
-            doc = SourceDoc(url=url, title=f"ROR organizations (education) page {page}",
-                            document_type="json", content=result.content,
-                            http_status=result.status, etag=result.etag,
-                            last_modified=result.last_modified)
-            yield AdapterBatch(document=doc, institutions=institutions)
-            emitted += len(institutions)
-            if len(items) < 20:
-                return
+            yield AdapterBatch(
+                document=SourceDoc(url=url, title=f"ROR search: {ctx.query}",
+                                   document_type="json", content=result.content,
+                                   http_status=result.status, etag=result.etag,
+                                   last_modified=result.last_modified,
+                                   retrieval_attempt_count=getattr(result, "attempts", 1)),
+                institutions=exact,
+                warnings=[] if exact else ["ROR query returned no exact name/alias match."],
+            )
+            return
+        emitted = 0
+        countries = list(dict.fromkeys(code.strip().upper() for code in ctx.countries)) \
+            if ctx.countries else [None]
+        if any(not code or len(code) != 2 or not code.isalpha() for code in countries if code):
+            raise ValueError("ROR country filters must be two-letter ISO country codes.")
+        max_pages = min(ctx.max_pages, ROR_API_MAX_PAGES)
+        for country in countries:
+            for page in range(1, max_pages + 1):
+                params = {"query.advanced": EDUCATION_QUERY, "page": page}
+                if country:
+                    params["filter"] = f"locations.geonames_details.country_code:{country}"
+                url = f"{API}?{urlencode(params)}"
+                try:
+                    result = ctx.fetcher.get(url)
+                except FetchError as exc:
+                    if exc.status in (400, 404) or exc.permanent:
+                        return
+                    raise
+                payload = json.loads(result.text())
+                if payload.get("errors"):
+                    raise ValueError("ROR API rejected the requested page or filter.")
+                items = payload.get("items") or []
+                if not items:
+                    break
+                institutions = [self._to_institution(item, page) for item in items]
+                institutions = [item for item in institutions if item is not None]
+                remaining = None if ctx.max_records is None else ctx.max_records - emitted
+                if remaining is not None:
+                    if remaining <= 0:
+                        return
+                    institutions = institutions[:remaining]
+                warnings = []
+                result_count = payload.get("number_of_results")
+                if isinstance(result_count, int) and result_count > 10_000:
+                    warnings.append(
+                        "This ROR query exceeds the API's 10,000-result ceiling; "
+                        "use the official ROR data dump for complete coverage.")
+                if country is None:
+                    warnings.append(
+                        "Global ROR API retrieval is capped at 10,000 records; "
+                        "supply --country to query independent country partitions or use the data dump.")
+                from app.ingestion.types import SourceDoc
+                doc = SourceDoc(url=url, title=f"ROR education organizations {country or 'global'} page {page}",
+                                document_type="json", content=result.content,
+                                http_status=result.status, etag=result.etag,
+                                last_modified=result.last_modified,
+                                retrieval_attempt_count=getattr(result, "attempts", 1))
+                yield AdapterBatch(document=doc, institutions=institutions,
+                                   warnings=warnings if page == 1 else [])
+                emitted += len(institutions)
+                if ctx.max_records is not None and emitted >= ctx.max_records:
+                    return
+                if len(items) < 20:
+                    break
 
     # ------------------------------------------------------------------ parsing
     def _to_institution(self, item: dict, page: int) -> CandidateInstitution | None:
@@ -113,14 +158,14 @@ class RorAdapter(SourceAdapter):
         page_url = item.get("id")
         candidate.facts = [
             CandidateFact("official_name", {"name": official},
-                          normalized={"name": name_key(official)}, locator=page_url),
+                          normalized={"name": name_key(official)}, excerpt=official, locator=page_url),
             CandidateFact("aliases", {"aliases": aliases},
                           normalized={"aliases": sorted(name_key(a) for a in aliases)},
                           locator=page_url),
             # comparable key is the host only, so two sources publishing the same site in
             # different formats (http vs https, trailing slash) are not treated as a change
             CandidateFact("official_website_url", {"url": website},
-                          normalized={"url": domain_of(website) or website}, locator=page_url),
+                          normalized={"url": domain_of(website) or website}, excerpt=website, locator=page_url),
             CandidateFact("location", {
                 "city": candidate.city, "admin_region": candidate.admin_region,
                 "country_code": candidate.country_code, "country_name": candidate.country_name,
@@ -129,6 +174,34 @@ class RorAdapter(SourceAdapter):
                 "longitude": str(candidate.longitude) if candidate.longitude is not None else None,
             }, locator=page_url),
         ]
+        # ROR relationships are source assertions, not merge instructions. Keep
+        # valid references as a candidate fact so institution review can inspect
+        # the exact parent/child/related claim and evidence before any linking.
+        relationship_types = {"parent", "child", "related", "predecessor", "successor"}
+        relationships = []
+        for relation in item.get("relationships") or []:
+            if not isinstance(relation, dict):
+                continue
+            identifier = clean_text(relation.get("id"))
+            label = clean_text(relation.get("label"))
+            kind = clean_text(relation.get("type"))
+            try:
+                parsed = urlsplit(identifier or "")
+                host = parsed.hostname
+            except ValueError:
+                continue
+            if (parsed.scheme != "https" or host != "ror.org"
+                    or not parsed.path.strip("/") or "/" in parsed.path.strip("/")
+                    or kind not in relationship_types):
+                continue
+            relationships.append({"ror_url": identifier, "label": label, "type": kind})
+        if relationships:
+            relationships.sort(key=lambda r: (r["type"], r["ror_url"], r["label"] or ""))
+            candidate.facts.append(CandidateFact(
+                "ror_relationships_as_reported", {"relationships": relationships},
+                normalized={"relationships": relationships},
+                excerpt="; ".join(f"{r['type']}: {r['label'] or r['ror_url']}" for r in relationships),
+                locator=page_url))
         return candidate
 
 

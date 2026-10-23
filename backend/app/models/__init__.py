@@ -1,11 +1,15 @@
 """All ORM models in dependency order so Alembic sees the full metadata."""
 from app.db.base import Base
 from app.models import catalogue, evidence, finance, identity, ops, recommendation, reference  # noqa: F401
+from app.models.archive import CatalogueArchiveRecord, CatalogueResetOperation  # noqa: F401
+from app.models.directory import DirectoryInstitution, DirectoryRelease  # noqa: F401
 from app.models.enums import *  # noqa: F401,F403  (re-export shared enums)
 from app.models.catalogue import (  # noqa: F401
     AdmissionRequirement,
     Campus,
+    InstitutionIdentifier,
     Program,
+    ProgramIdentifier,
     ProgramFee,
     ProgramIntake,
     University,
@@ -17,6 +21,7 @@ from app.models.evidence import (  # noqa: F401
     FactVersion,
     Source,
     SourceDocument,
+    SourceDocumentRetrieval,
 )
 from app.models.finance import (  # noqa: F401
     CostScenario,
@@ -34,6 +39,10 @@ from app.models.finance import (  # noqa: F401
 )
 from app.models.identity import (  # noqa: F401
     AuditEvent,
+    InstitutionIdentityReview,
+    InstitutionIdentityReviewEvent,
+    InstitutionReview,
+    InstitutionReviewEvent,
     ProfileCountryPreference,
     ProfilePriority,
     Role,

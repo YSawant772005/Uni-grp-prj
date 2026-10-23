@@ -14,6 +14,7 @@ import MoneyCell from '../../components/MoneyCell.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import SaveToggle from '../../components/SaveToggle.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
+import ProgramQuality from '../../components/ProgramQuality.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -84,17 +85,22 @@ async function checkEligibility() {
         <div>
           <h1 style="margin-bottom: 4px">{{ program.name }}</h1>
           <p class="muted" style="margin: 0">
-            {{ program.university.name }} · {{ program.university.city }}, {{ program.country_code }}
-            · {{ program.degree_level }} · {{ humanize(program.study_mode) }} · {{ program.language }}
+            {{ program.university.name }} · {{ program.university.city ?? 'City not available' }}, {{ program.country_code }}
+            · {{ program.degree_level }} · {{ humanize(program.study_mode) || 'Study mode not specified' }} · {{ program.language ?? 'Language not specified' }}
+          </p>
+          <p class="small" style="margin: 4px 0 0">
+            <a v-if="program.university.official_website_url" :href="program.university.official_website_url" target="_blank" rel="noopener noreferrer">Official university website</a>
+            <span v-else class="muted">Official university website not available</span>
           </p>
           <p class="small muted" style="margin: 4px 0 0">
-            {{ formatDuration(program.duration_months) }}
+            {{ formatDuration(program.duration_months) || 'Duration not available' }}
             <template v-if="program.nearest_intake">
               · next intake {{ program.nearest_intake.intake_term }} {{ program.nearest_intake.intake_year }}
               <template v-if="program.nearest_intake.application_deadline">
                 · deadline {{ formatDate(program.nearest_intake.application_deadline) }}
-              </template>
+              </template><template v-else> · deadline not available</template>
             </template>
+            <template v-else> · intake and deadline not available</template>
           </p>
         </div>
         <div class="row">
@@ -105,12 +111,7 @@ async function checkEligibility() {
       </div>
 
       <!-- data quality banner -->
-      <div v-if="program.data_quality.warnings.length" class="banner banner-warn" role="status">
-        <strong>Data quality - {{ program.data_quality.status }}</strong>
-        <ul style="margin: 4px 0 0; padding-left: 18px">
-          <li v-for="warning in program.data_quality.warnings" :key="warning" class="small">{{ warning }}</li>
-        </ul>
-      </div>
+      <ProgramQuality :program="program" details />
 
       <!-- tabs -->
       <div class="tabs" role="tablist" aria-label="Program sections">
@@ -131,20 +132,30 @@ async function checkEligibility() {
         <div class="card">
           <h2>About the program</h2>
           <p>{{ program.description ?? 'No description published yet.' }}</p>
+          <p v-if="program.description_source" class="small muted">
+            Reviewed summary based on
+            <a :href="program.description_source.source_url" target="_blank" rel="noopener noreferrer">{{ program.description_source.attribution }}</a>
+            · source checked {{ formatDate(program.description_source.retrieved_at) }}
+          </p>
           <dl class="kv">
             <dt>Field</dt>
-            <dd>{{ program.field.display_name }}</dd>
+            <dd>{{ program.field?.display_name ?? 'Field not available' }}</dd>
             <dt>Recognition</dt>
             <dd>
               <StatusBadge :status="program.university.recognition_status" />
             </dd>
             <dt>Official page</dt>
             <dd>
-              <a v-if="program.official_program_url" :href="program.official_program_url" target="_blank" rel="noopener noreferrer">
+              <a v-if="program.official_program_url && (program.official_program_url_status === 'verified' || program.official_program_url_status === 'demo_fixture')" :href="program.official_program_url" target="_blank" rel="noopener noreferrer">
                 {{ program.official_program_url }}
               </a>
-              <span v-else class="muted">Not published</span>
+              <span v-else class="muted">Official university program page not verified</span>
             </dd>
+            <template v-if="program.official_registry_reference?.url">
+              <dt>Government programme record</dt>
+              <dd><a :href="program.official_registry_reference.url" target="_blank" rel="noopener noreferrer">Official registry evidence</a>
+                <span class="small muted"> · {{ program.official_registry_reference.reason }}</span></dd>
+            </template>
             <dt>Tuition summary</dt>
             <dd><MoneyCell :cell="program.tuition_summary" /></dd>
           </dl>
@@ -366,8 +377,11 @@ async function checkEligibility() {
                     <span v-else class="small muted">{{ source.title ?? 'source removed' }}</span>
                   </div>
                   <p v-if="source.excerpt" class="small" style="margin: 2px 0">“{{ truncate(source.excerpt, 240) }}”</p>
+                  <p v-if="source.locator" class="small muted" style="margin: 2px 0">Source locator: {{ source.locator }}</p>
                   <p v-if="source.retrieved_at" class="small muted" style="margin: 0">
                     retrieved {{ formatDate(source.retrieved_at) }}
+                    <template v-if="source.http_status"> · HTTP {{ source.http_status }}</template>
+                    <template v-if="source.fetch_status"> · {{ humanize(source.fetch_status) }}</template>
                   </p>
                 </li>
               </ul>

@@ -21,6 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -60,6 +61,52 @@ class University(Base, UUIDPk, TimestampMixin):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class InstitutionIdentifier(Base, UUIDPk):
+    """A source-attributed identifier claim for an institution or reporting scope."""
+
+    __tablename__ = "institution_identifiers"
+    __table_args__ = (
+        UniqueConstraint("source_key", "namespace", "normalized_value", "scope", "university_id",
+                         name="uq_institution_identifier_claim"),
+        CheckConstraint("scope IN ('institution', 'campus', 'reporting_unit') AND "
+                        "((scope = 'campus' AND campus_id IS NOT NULL) OR "
+                        "(scope <> 'campus' AND campus_id IS NULL))",
+                        name="ck_institution_identifiers_scope"),
+        CheckConstraint("claim_status IN ('accepted', 'pending_review', 'conflicted', 'rejected')",
+                        name="ck_institution_identifiers_status"),
+        Index("ix_institution_identifiers_lookup", "namespace", "normalized_value"),
+        Index("ix_institution_identifiers_university", "university_id"),
+        Index("uq_institution_identifiers_authoritative", "namespace", "normalized_value", "scope",
+              unique=True, postgresql_where=text(
+                  "claim_status = 'accepted' AND "
+                  "namespace IN ('ror', 'ror_grid', 'ror_isni', 'ror_wikidata', 'ror_ringgold', "
+                  "'ipeds_unitid', 'grid', 'isni', 'wikidata')")),
+        Index("uq_institution_identifiers_rio_provider", "source_key", "namespace",
+              "normalized_value", "scope", unique=True,
+              postgresql_where=text(
+                  "claim_status = 'accepted' AND namespace = 'rio_provider_id'")),
+    )
+
+    university_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("universities.id", ondelete="RESTRICT"), nullable=False
+    )
+    campus_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("campuses.id", ondelete="RESTRICT")
+    )
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("sources.id", ondelete="RESTRICT")
+    )
+    source_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("source_documents.id", ondelete="RESTRICT")
+    )
+    source_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    namespace: Mapped[str] = mapped_column(String(80), nullable=False)
+    identifier_value: Mapped[str] = mapped_column(String(250), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(250), nullable=False)
+    scope: Mapped[str] = mapped_column(String(24), nullable=False, server_default="institution")
+    claim_status: Mapped[str] = mapped_column(String(24), nullable=False, server_default="accepted")
+
+
 class Campus(Base, UUIDPk, TimestampMixin):
     __tablename__ = "campuses"
     __table_args__ = (Index("ix_campuses_university", "university_id"),)
@@ -77,7 +124,6 @@ class Campus(Base, UUIDPk, TimestampMixin):
 class Program(Base, UUIDPk, TimestampMixin):
     __tablename__ = "programs"
     __table_args__ = (
-        UniqueConstraint("university_id", "slug", "degree_level", name="uq_programs_identity"),
         CheckConstraint(
             "duration_min_months IS NULL OR duration_max_months IS NULL "
             "OR duration_min_months <= duration_max_months",
@@ -108,6 +154,35 @@ class Program(Base, UUIDPk, TimestampMixin):
         PublicationStatus, default=PublicationStatus.candidate, server_default=PublicationStatus.candidate.value
     )
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ProgramIdentifier(Base, UUIDPk):
+    """Source-specific stable key for one named programme offering."""
+
+    __tablename__ = "program_identifiers"
+    __table_args__ = (
+        UniqueConstraint("source_key", "normalized_external_key", "program_id",
+                         name="uq_program_identifier_claim"),
+        CheckConstraint("claim_status IN ('accepted', 'pending_review', 'conflicted', 'rejected')",
+                        name="ck_program_identifiers_status"),
+        Index("ix_program_identifiers_program", "program_id"),
+        Index("uq_program_identifiers_source_key", "source_key", "normalized_external_key",
+              unique=True, postgresql_where=text("claim_status = 'accepted'")),
+    )
+
+    program_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("programs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_document_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("source_documents.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    external_key: Mapped[str] = mapped_column(String(250), nullable=False)
+    normalized_external_key: Mapped[str] = mapped_column(String(250), nullable=False)
+    claim_status: Mapped[str] = mapped_column(String(24), nullable=False, server_default="accepted")
 
 
 class ProgramIntake(Base, UUIDPk, TimestampMixin):

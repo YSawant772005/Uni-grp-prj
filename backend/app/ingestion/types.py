@@ -7,7 +7,7 @@ The pipeline is the only layer that writes to PostgreSQL.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 
@@ -19,12 +19,17 @@ class SourceDoc:
     title: str | None = None
     document_type: str = "html"
     content: bytes = b""
+    #: Safe summary to persist when the retrieved payload contains fields that
+    #: the adapter intentionally does not retain.
+    content_excerpt: str | None = None
     http_status: int | None = None
     etag: str | None = None
     last_modified: str | None = None
     source_date: date | None = None
     academic_period: str | None = None
+    retrieved_at: datetime | None = None
     canonical_url: str | None = None
+    retrieval_attempt_count: int = 1
 
     @property
     def canonical(self) -> str:
@@ -42,11 +47,21 @@ class CandidateFact:
     confidence: float | None = None
     effective_from: date | None = None
     effective_to: date | None = None
+    applicable_intake_year: int | None = None
+    applicable_intake_term: str | None = None
     status: str = "candidate"
     extraction_method: str = "parser"
 
     def norm(self) -> dict:
         return self.normalized if self.normalized is not None else self.value
+
+
+@dataclass
+class ProgramDocument:
+    """Supplementary evidence; never replaces the catalogue identity document."""
+
+    document: SourceDoc
+    facts: list[CandidateFact] = field(default_factory=list)
 
 
 @dataclass
@@ -56,12 +71,14 @@ class CandidateProgram:
     degree_level: str = "masters"
     discipline_code: str | None = None
     discipline_name: str | None = None
+    discipline_key: str | None = None
     official_url: str | None = None
     duration_min_months: int | None = None
     duration_max_months: int | None = None
     study_mode: str | None = None
     delivery_language: str | None = None
     facts: list[CandidateFact] = field(default_factory=list)
+    documents: list[ProgramDocument] = field(default_factory=list)
 
 
 @dataclass
@@ -69,6 +86,8 @@ class CandidateInstitution:
     external_key: str
     name: str
     identifiers: dict[str, str] = field(default_factory=dict)
+    identifier_scopes: dict[str, str] = field(default_factory=dict)
+    identifier_campus_ids: dict[str, str] = field(default_factory=dict)
     aliases: list[str] = field(default_factory=list)
     country_code: str | None = None
     country_name: str | None = None
@@ -103,6 +122,7 @@ class AdapterBatch:
     institutions: list[CandidateInstitution] = field(default_factory=list)
     fields: list[CandidateField] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    skipped_records: int = 0
 
 
 class SourceNotPermitted(RuntimeError):

@@ -3,16 +3,16 @@ program detail, money honesty and evidence/outcome provenance."""
 import uuid
 
 import pytest
+from sqlalchemy import select
 
-from app.core.config import settings
 from app.db.session import SessionLocal
 from app.db.seed import run_seed
+from app.models import Country, InstitutionReview, Program, University
 from conftest import _truncate_all
 
 
 @pytest.fixture(scope="module")
 def _seeded():
-    assert "_test" in settings.database_url, "tests require a *_test database"
     session = SessionLocal()
     _truncate_all(session)
     run_seed(session)
@@ -178,3 +178,31 @@ class TestPublicationVisibility:
         finally:
             row.publication_status = "published"
             db.commit()
+
+    def test_real_program_visibility_requires_approved_institution(self, db, client):
+        country = db.scalar(select(Country).where(Country.code == "DE"))
+        university = University(
+            canonical_name="Pending Real University", slug=f"pending-real-{uuid.uuid4().hex[:8]}",
+            country_code=country.code, external_identifiers={"ror": "01pending-real"})
+        db.add(university)
+        db.flush()
+        program = Program(university_id=university.id, country_code="DE",
+                          canonical_name="Evidence-backed pending program",
+                          slug=f"pending-program-{uuid.uuid4().hex[:8]}",
+                          degree_level="masters", publication_status="published")
+        db.add(program)
+        db.add(InstitutionReview(university_id=university.id, status="pending"))
+        db.commit()
+        assert client.get(f"/api/v1/programs/{program.id}").status_code == 404
+        body = client.get("/api/v1/programs?page_size=100").json()
+        assert body["total_items"] == 9
+        assert str(program.id) not in {item["id"] for item in body["items"]}
+
+        review = db.scalar(select(InstitutionReview).where(
+            InstitutionReview.university_id == university.id))
+        review.status = "approved"
+        db.commit()
+        body = client.get("/api/v1/programs?page_size=100").json()
+        assert body["total_items"] == 10
+        assert str(program.id) in {item["id"] for item in body["items"]}
+        assert client.get(f"/api/v1/programs/{program.id}").status_code == 200

@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -51,6 +51,8 @@ def _process_job(job_id) -> None:
             _finish(db, job, "failed",
                     "source use policy no longer permits automated refresh")
             return
+        options = (job.checkpoint or {}).get("run_options") or {}
+        allowed_options = {key: value for key, value in options.items() if key in ("max_records", "max_pages", "countries", "query")}
         adapter_key = (source.metadata_json or {}).get("adapter_key")
         if not adapter_key or get_adapter(adapter_key) is None:
             _finish(db, job, "partial", NO_FETCH_REASON)
@@ -58,7 +60,12 @@ def _process_job(job_id) -> None:
     finally:
         db.close()
 
-    summary = run_source(adapter_key, RunOptions(), job_id=job_id)
+    summary = run_source(adapter_key, RunOptions(**allowed_options), job_id=job_id)
+    if summary.error:
+        with SessionLocal() as failed_db:
+            failed_job = failed_db.get(IngestionJob, job_id)
+            if failed_job and failed_job.status == "running":
+                _finish(failed_db, failed_job, "failed", summary.error)
     logger.info("job %s (%s) -> %s (%s)", job_id, adapter_key, summary.status, summary.error or "")
 
 
@@ -86,7 +93,8 @@ def drain_queued_jobs(limit: int = BATCH_SIZE) -> int:
     try:
         job_ids = db.scalars(
             select(IngestionJob.id)
-            .where(IngestionJob.status == "queued")
+            .where(IngestionJob.status == "queued", or_(IngestionJob.worker_version.is_(None),
+                   ~IngestionJob.worker_version.like('ror-directory-%')))
             .order_by(IngestionJob.created_at)
             .limit(limit)
             .with_for_update(skip_locked=True)
@@ -108,8 +116,11 @@ def drain_queued_jobs(limit: int = BATCH_SIZE) -> int:
     for job_id in job_ids:
         try:
             _process_job(job_id)
-        except Exception:  # pragma: no cover - one bad job cannot stop the worker
+        except Exception:  # one bad job cannot stop the worker or remain silently running
             logger.exception("job %s failed", job_id)
+            with SessionLocal() as failed_db:
+                _finish(failed_db, failed_db.get(IngestionJob, job_id), "failed",
+                        "worker failed before completing this run; inspect logs and retry explicitly")
         processed += 1
     return processed
 

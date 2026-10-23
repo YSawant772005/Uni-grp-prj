@@ -8,7 +8,7 @@ import { formatDate } from '../../utils/format'
 import AsyncState from '../../components/AsyncState.vue'
 import CompareToggle from '../../components/CompareToggle.vue'
 import MoneyCell from '../../components/MoneyCell.vue'
-import StatusBadge from '../../components/StatusBadge.vue'
+import ProgramQuality from '../../components/ProgramQuality.vue'
 
 const savedStore = useSavedStore()
 const ui = useUiStore()
@@ -56,7 +56,7 @@ async function remove(programId: string) {
             <RouterLink :to="`/programs/${item.program_id}`">
               <h3 style="margin: 0">{{ item.program.name }}</h3>
             </RouterLink>
-            <StatusBadge :status="item.program.data_quality.status" />
+            <ProgramQuality :program="item.program" />
           </div>
           <p class="small muted" style="margin: 0">
             {{ item.program.university.name }} · {{ item.program.country_code }}

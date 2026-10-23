@@ -15,8 +15,24 @@ Progress is tracked only in `docs/UNIVERSITY_SHORTLISTING_PROJECT_STATUS.md`.
 
 ```bash
 cp .env.example .env         # edit secrets
+docker compose up -d db
+docker compose --profile db-admin run --rm -e MIGRATION_TARGET=development db-admin alembic upgrade head   # explicit schema change
+docker compose --profile db-admin run --rm -e SEED_TARGET=development db-admin python -m app.db.seed  # explicit demo seed
 docker compose up --build    # db + api + web (vite dev on :5173) + nginx SPA on http://localhost:8080 (override host port with WEB_PORT in .env)
 ```
+
+The API container does not migrate or seed on startup. Its readiness endpoint
+reports `schema: not_initialized` until the explicit migration step succeeds.
+On a fresh PostgreSQL volume, the init hook creates the least-privilege
+`uni_shortlist_app` role from `APP_DB_USER`/`APP_DB_PASSWORD`; the API uses
+`APP_DATABASE_URL` for both runtime URL settings. The admin `DATABASE_URL` is
+available only to the opt-in `db-admin` service for explicit migration and seed
+commands; it is not passed into the long-running API process.
+Adding this hook does not change an existing PostgreSQL volume. For an existing
+volume that has not been transitioned, take and verify a backup, then review
+`scripts/provision-runtime-role.sql` and obtain database-owner approval before
+executing it. Set `APP_DATABASE_URL` in the ignored `.env` before restarting the
+API. Normal startup never provisions roles or changes existing data.
 
 ## Quick start (local dev)
 
@@ -25,7 +41,9 @@ docker compose up --build    # db + api + web (vite dev on :5173) + nginx SPA on
 cd backend
 python -m venv .venv && .venv\Scripts\activate      # or source .venv/bin/activate
 pip install -r requirements.txt
-set DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/uni_shortlist
+set DATABASE_URL=postgresql+psycopg://uni_shortlist:your_local_secret@localhost:5433/uni_shortlist
+set APP_DATABASE_URL=postgresql+psycopg://uni_shortlist_app:your_runtime_secret@localhost:5433/uni_shortlist
+set MIGRATION_TARGET=development
 alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 
@@ -59,9 +77,51 @@ the APScheduler worker (`ENABLE_SCHEDULER=true`) picks it up.
 ## Tests
 
 ```bash
-cd backend && pytest          # integration tests need DATABASE_URL (disposable DB!)
-cd frontend && npm run test && npm run typecheck && npm run build
+# Create/load unique test-only and recovery-only secrets in ignored .env.test.
+if [ ! -f .env.test ]; then umask 077; printf 'TEST_DB_PASSWORD=%s\nRECOVERY_DB_PASSWORD=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env.test; fi
+set -a; . ./.env.test; set +a
+docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test up -d db-test
+docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test run --rm test-migrate
+docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test run --rm test-seed
+docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test run --rm test-runner
 
-# end-to-end API journey through NGINX (requires: docker compose up -d; reads WEB_PORT from .env)
+# Isolated end-to-end journey through its own NGINX/API/PostgreSQL stack:
+docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test up -d api-test nginx-test
+# In PowerShell:
+# $env:UNISHORTLIST_TEST_MODE='1'; $env:TEST_API_BASE_URL='http://127.0.0.1:8081'
 powershell -File scripts/integration-journey.ps1
+
+cd frontend && npm run test && npm run typecheck && npm run build
 ```
+
+Pytest refuses startup unless `TEST_DATABASE_URL` and `DATABASE_URL` are the
+same explicit test URL, test intent is set, and the live database reports the
+expected database, role, service and test-only marker. The test stack owns a
+separate named volume and private network; it does not mount `pgdata` or publish
+PostgreSQL. Test migrations and truncation are guarded against that live marker.
+Never set these variables to the development or production database.
+
+## Database backup and recovery
+
+`bash scripts/db-backup.sh` verifies the running development database identity
+in a read-only transaction, then writes a logical `pg_dump` and metadata under
+`~/.local/share/uni-shortlist/backups` (outside the Compose data volume). Backup
+files are mode-restricted and ignored by Git. Supply `RECOVERY_DB_PASSWORD` as
+a separate untracked secret, then restore and verify a backup in a disposable
+PostgreSQL recovery container with:
+
+```bash
+set -a; . ./.env.test; set +a
+bash scripts/db-restore-recovery.sh ~/.local/share/uni-shortlist/backups/uni_shortlist_TIMESTAMP.dump
+```
+
+The recovery service uses private networking and tmpfs storage. The restore
+script checks its database, role and recovery marker before restoring, then
+compares the Alembic revision and aggregate counts recorded in backup metadata.
+It never targets the development database. Remove the isolated recovery
+container after the check with
+`docker compose -p uni-shortlist-recovery -f docker-compose.recovery.yml --profile recovery down`;
+its tmpfs data is discarded with that container.
+
+Stop the test containers without deleting their persistent isolated test volume:
+`docker compose -f docker-compose.yml -f docker-compose.test.yml --profile test down`.

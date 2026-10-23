@@ -24,6 +24,7 @@ const activeVersions = computed(() => fact.value?.versions ?? [])
 const pending = ref(false)
 const actionError = ref('')
 const reason = ref('')
+const descriptionSummary = ref('')
 const confirmAction = ref<'approve' | 'reject' | 'request_evidence' | null>(null)
 
 /** Which version the actions target: the current one, or a chosen older one. */
@@ -45,6 +46,11 @@ function cancelAction() {
 async function runAction() {
   if (!confirmAction.value || pending.value) return
   const action = confirmAction.value
+  if (action === 'approve' && fact.value?.fact_key === 'program_description'
+      && (!descriptionSummary.value.trim() || !reason.value.trim())) {
+    actionError.value = 'Write an independent description summary and explain its official source evidence.'
+    return
+  }
   if ((action === 'reject' || action === 'request_evidence') && !reason.value.trim()) {
     actionError.value = 'A reason is required for this action.'
     return
@@ -56,8 +62,9 @@ async function runAction() {
       await admin.approveFact(factId.value, {
         ...(selectedVersionId.value ? { version_id: selectedVersionId.value } : {}),
         ...(reason.value.trim() ? { reason: reason.value.trim() } : {}),
+        ...(fact.value?.fact_key === 'program_description' ? { description_summary: descriptionSummary.value.trim() } : {}),
       })
-      ui.push('Version approved and published.', 'success')
+      ui.push('Fact version verified. Program publication is reviewed separately.', 'success')
     } else if (action === 'reject') {
       await admin.rejectFact(factId.value, {
         ...(selectedVersionId.value ? { version_id: selectedVersionId.value } : {}),
@@ -70,6 +77,7 @@ async function runAction() {
     }
     confirmAction.value = null
     reason.value = ''
+    descriptionSummary.value = ''
     targetVersionId.value = null
     await factState.run()
   } catch (err) {
@@ -123,6 +131,40 @@ const actionButtons = computed(() => {
       <div class="grid-2">
         <!-- versions + evidence -->
         <div class="stack">
+          <section v-if="fact.entity_context" class="card">
+            <h3 style="margin-top: 0">{{ humanize(fact.entity_context.type) }} identity</h3>
+            <p class="small" style="margin: 0">
+              <strong>{{ fact.entity_context.name }}</strong>
+              <span v-if="fact.entity_context.country_code" class="muted"> · {{ fact.entity_context.country_code }}</span>
+              <span v-if="fact.entity_context.publication_status" class="muted"> · {{ fact.entity_context.publication_status }}</span>
+            </p>
+            <p v-if="fact.entity_context.type === 'university'" class="small" style="margin: 6px 0 0">
+              <a v-if="fact.entity_context.official_website_url" :href="fact.entity_context.official_website_url" target="_blank" rel="noopener noreferrer">
+                Official university website
+              </a>
+              <span v-else class="error">Official university website not established</span>
+            </p>
+            <template v-if="fact.entity_context.type === 'program'">
+              <p class="small" style="margin: 6px 0 0">
+                Institution:
+                <a v-if="fact.entity_context.university?.official_website_url" :href="fact.entity_context.university.official_website_url" target="_blank" rel="noopener noreferrer">
+                  {{ fact.entity_context.university.name }} official website
+                </a>
+                <span v-else>{{ fact.entity_context.university?.name ?? 'Institution unresolved' }}</span>
+              </p>
+              <p v-if="fact.entity_context.source_identifiers?.length" class="small muted" style="margin: 4px 0 0">
+                <span v-for="(identity, index) in fact.entity_context.source_identifiers" :key="`${identity.source_key}-${identity.external_key}`">
+                  {{ index ? ' · ' : '' }}{{ identity.source_key }}: {{ identity.external_key }} ({{ identity.claim_status }})
+                </span>
+              </p>
+            </template>
+            <template v-if="fact.entity_context.type === 'university' && fact.entity_context.external_identifiers">
+              <p class="small muted" style="margin: 4px 0 0">
+                Identifiers: {{ Object.entries(fact.entity_context.external_identifiers).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'none recorded' }}
+              </p>
+            </template>
+          </section>
+
           <section v-for="version in activeVersions" :key="version.id" class="card">
             <div class="row-between">
               <h3 style="margin: 0">Version {{ version.version_number }}</h3>
@@ -140,7 +182,14 @@ const actionButtons = computed(() => {
               >
               · created {{ formatDateTime(version.created_at) }}
             </p>
-            <pre class="json-block">{{ formatValue(version.value) }}</pre>
+            <p class="card" style="margin: 8px 0; padding: 10px">
+              <strong class="small">Value for review</strong><br />
+              {{ version.display_value?.summary ?? formatValue(version.value) }}
+            </p>
+            <details>
+              <summary class="small muted">Raw source value</summary>
+              <pre class="json-block">{{ formatValue(version.value) }}</pre>
+            </details>
             <p v-if="version.reviewed_at" class="small muted" style="margin: 0">
               Reviewed {{ formatDateTime(version.reviewed_at) }}
               <template v-if="version.review_reason"> - “{{ version.review_reason }}”</template>
@@ -158,6 +207,7 @@ const actionButtons = computed(() => {
                     <span v-else class="small muted">{{ evidence.source?.name ?? 'unknown source' }}</span>
                   </div>
                   <p v-if="evidence.excerpt" class="small" style="margin: 2px 0">“{{ evidence.excerpt }}”</p>
+                  <p v-if="evidence.locator" class="small muted" style="margin: 2px 0">Source locator: {{ evidence.locator }}</p>
                   <p class="small muted" style="margin: 0">
                     <template v-if="evidence.source">
                       tier {{ evidence.source.authority_tier }} · policy
@@ -212,6 +262,12 @@ const actionButtons = computed(() => {
 
           <div v-if="actionError" class="error-summary" role="alert">{{ actionError }}</div>
 
+          <div v-if="fact?.fact_key === 'program_description'" class="field">
+            <label for="description-summary">Independent programme summary</label>
+            <textarea id="description-summary" v-model="descriptionSummary" maxlength="600" rows="5" />
+            <p class="small muted">Use the attached official source passage as evidence. Write 40–600 characters in your own words (at most 90 words), and explain your review in the reason. Existing authored descriptions are preserved.</p>
+          </div>
+
           <template v-if="!confirmAction">
             <div class="stack-sm">
               <button
@@ -221,7 +277,7 @@ const actionButtons = computed(() => {
                 :disabled="pending"
                 @click="startAction('approve')"
               >
-                Approve version (publish)
+                Verify fact version
               </button>
               <button
                 v-if="actionButtons.canReject"
@@ -237,8 +293,8 @@ const actionButtons = computed(() => {
               </button>
             </div>
             <p class="small muted" style="margin: 10px 0 0">
-              Approve publishes the value to catalogue results. Reject prevents publication. Request
-              evidence keeps the fact queued and asks for stronger sources.
+              Verification updates supported structured catalogue fields. University approval and
+              programme publication require their own review. Request evidence keeps this fact queued.
             </p>
           </template>
 
@@ -247,7 +303,11 @@ const actionButtons = computed(() => {
               {{ confirmAction === 'approve' ? 'Confirm approval' : confirmAction === 'reject' ? 'Confirm rejection' : 'Request evidence' }}
             </h3>
             <p class="small" style="margin-top: 0">
-              <template v-if="confirmAction === 'approve'">
+              <template v-if="confirmAction === 'approve' && fact?.fact_key === 'program_description'">
+                Your summary is saved in a new verified version with the selected version's source
+                evidence. This does not publish a programme. The decision is recorded in the audit log.
+              </template>
+              <template v-else-if="confirmAction === 'approve'">
                 The selected version becomes the published value for this fact. This is recorded in
                 the audit log under your account.
               </template>
@@ -260,7 +320,7 @@ const actionButtons = computed(() => {
             </p>
             <div class="field">
               <label :for="`reason-${confirmAction}`">
-                Reason <span v-if="confirmAction !== 'approve'" class="muted">(required)</span>
+                Reason <span v-if="confirmAction !== 'approve' || fact?.fact_key === 'program_description'" class="muted">(required)</span>
                 <span v-else class="muted">(optional)</span>
               </label>
               <textarea

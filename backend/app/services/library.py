@@ -24,6 +24,7 @@ from app.models import (
     User,
 )
 from app.services import catalog, eligibility as eligibility_engine
+from app.services.program_quality import academic_completeness, source_verification
 
 MAX_COMPARE_PROGRAMS = 6
 
@@ -45,7 +46,9 @@ def list_saved(db: Session, user: User) -> list[dict]:
     rows = db.execute(
         select(SavedProgram, Program)
         .join(Program, Program.id == SavedProgram.program_id)
-        .where(SavedProgram.user_id == user.id)
+        .where(SavedProgram.user_id == user.id,
+               Program.publication_status == "published", Program.is_active.is_(True),
+               catalog.institution_approved_clause())
         .order_by(SavedProgram.created_at.desc())).all()
     return [{"program_id": sp.program_id, "note": sp.note,
              "saved_at": sp.created_at.isoformat() if sp.created_at else None,
@@ -55,7 +58,7 @@ def list_saved(db: Session, user: User) -> list[dict]:
 
 def save_program(db: Session, user: User, program_id: uuid.UUID, note: str | None) -> dict:
     program = db.get(Program, program_id)
-    if program is None or program.publication_status != "published" or not program.is_active:
+    if program is None or not catalog.student_visible_program(db, program):
         raise ApiError(404, "NOT_FOUND", "Program not found.")
     existing = db.scalar(select(SavedProgram).where(
         SavedProgram.user_id == user.id, SavedProgram.program_id == program_id))
@@ -98,7 +101,8 @@ def _normalize_ids(program_ids: list[uuid.UUID]) -> list[uuid.UUID]:
 def _published_programs(db: Session, ids: list[uuid.UUID]) -> dict[uuid.UUID, Program]:
     rows = db.scalars(select(Program).where(
         Program.id.in_(ids),
-        Program.publication_status == "published", Program.is_active.is_(True))).all()
+        Program.publication_status == "published", Program.is_active.is_(True),
+        catalog.institution_approved_clause())).all()
     found = {p.id: p for p in rows}
     missing = [str(i) for i in ids if i not in found]
     if missing:
@@ -123,7 +127,7 @@ def compare_programs(db: Session, program_ids: list[uuid.UUID],
         intakes = ctx["intakes"].get(program.id, [])
         deadline = next((i.application_deadline for i in intakes if i.application_deadline), None)
         university = db.get(University, program.university_id)
-        ev = (eligibility_engine.evaluate_program(profile, reqs)
+        ev = (eligibility_engine.evaluate_for_program(db, profile, program.id)
               if profile is not None and profile.user_id else None)
         columns.append({
             "program_id": program.id,
@@ -140,6 +144,8 @@ def compare_programs(db: Session, program_ids: list[uuid.UUID],
                 1 for r in reqs
                 if ctx["facts"].get(r.source_fact_id, {}).get("status") != "verified"),
             "recognition_status": university.recognition_status if university else None,
+            "source_verification": source_verification(program, university, ctx),
+            "academic_completeness": academic_completeness(program, ctx),
             "eligibility_status": ev["status"] if ev else None,
             "data_quality": catalog._data_quality(
                 tuition.status if tuition else None,
@@ -161,6 +167,11 @@ def _comparison_out(db: Session, comparison: Comparison) -> dict:
     items = db.execute(
         select(ComparisonItem).where(ComparisonItem.comparison_id == comparison.id)
         .order_by(ComparisonItem.position)).scalars().all()
+    visible_ids = {row[0] for row in db.execute(select(Program.id).where(
+        Program.id.in_([i.program_id for i in items]),
+        Program.publication_status == "published", Program.is_active.is_(True),
+        catalog.institution_approved_clause())).all()} if items else set()
+    items = [item for item in items if item.program_id in visible_ids]
     ids = [i.program_id for i in items]
     return {
         "id": comparison.id,

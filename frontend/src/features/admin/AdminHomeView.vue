@@ -8,6 +8,7 @@ import StatusBadge from '../../components/StatusBadge.vue'
 
 const auth = useAuthStore()
 
+const institutions = useAsync(() => admin.institutionReviews({ page_size: 5 }), { immediate: true })
 const queueState = useAsync(() => admin.reviewQueue({ page_size: 5 }), { immediate: true })
 const jobsState = useAsync(
   () => (auth.isAdmin ? admin.jobs({ page_size: 5 }) : Promise.resolve(null)),
@@ -28,6 +29,30 @@ const jobsState = useAsync(
     </div>
 
     <div class="grid">
+      <RouterLink to="/admin/identity-reviews" class="card" style="color: inherit">
+        <h3 style="margin-top: 0">Institution identity review</h3>
+        <p class="small muted" style="margin: 0">
+          Resolve ambiguous source identifiers and weak match suggestions. Approved links keep
+          institutions separate and record reviewer evidence.
+        </p>
+      </RouterLink>
+
+      <RouterLink to="/admin/institution-reviews" class="card" style="color: inherit">
+        <h3 style="margin-top: 0">University and Master’s review</h3>
+        <p class="small muted" style="margin: 0">
+          Review each canonical university once, with its accepted identifiers, source facts,
+          official website evidence and associated programme records grouped together.
+        </p>
+      </RouterLink>
+
+      <RouterLink to="/admin/program-publication" class="card" style="color: inherit">
+        <h3 style="margin-top: 0">Program publication review</h3>
+        <p class="small muted" style="margin: 0">
+          Review Master's program identity and source evidence before making a candidate visible in discovery.
+          Publishing a program does not verify its admission, fee, or deadline facts.
+        </p>
+      </RouterLink>
+
       <RouterLink to="/admin/review" class="card" style="color: inherit">
         <h3 style="margin-top: 0">Review queue</h3>
         <p class="small muted" style="margin: 0">
@@ -67,6 +92,20 @@ const jobsState = useAsync(
       </RouterLink>
     </div>
 
+    <section class="stack">
+      <h2>University evidence collection</h2>
+      <p v-if="institutions.data.value" class="small muted">{{ institutions.data.value.stage_counts.ready_for_review ?? 0 }} ready for human review · {{ institutions.data.value.stage_counts.discovery ?? 0 }} awaiting programme discovery · {{ institutions.data.value.stage_counts.evidence_collection ?? 0 }} collecting evidence</p>
+      <AsyncState :loading="institutions.loading.value" :error="institutions.error.value" :empty="!institutions.data.value?.items.length"
+        empty-title="No pending university packages" @retry="institutions.run">
+        <RouterLink v-for="item in institutions.data.value?.items" :key="item.university_id" :to="`/admin/institution-reviews/${item.university_id}`" class="card card-flat row-between" style="color: inherit">
+          <div><strong>{{ item.name }}</strong><p class="small muted">{{ item.country_code }} · {{ item.program_count }} named programme records</p></div>
+          <StatusBadge :status="item.workflow_stage" />
+        </RouterLink>
+      </AsyncState>
+    </section>
+
+    <details>
+      <summary>Technical fact review</summary>
     <!-- live queue preview -->
     <section class="stack">
       <h2>Needs attention now</h2>
@@ -99,5 +138,6 @@ const jobsState = useAsync(
         </div>
       </AsyncState>
     </section>
+    </details>
   </div>
 </template>

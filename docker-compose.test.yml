@@ -1,0 +1,104 @@
+# Opt-in isolated test stack. It has no shared network, volume, or published
+# PostgreSQL port with the development stack.
+services:
+  db-test:
+    image: postgres:16-alpine
+    profiles: [test]
+    environment:
+      POSTGRES_DB: uni_shortlist_test
+      POSTGRES_USER: uni_shortlist_test
+      POSTGRES_PASSWORD: ${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD in the environment}
+    volumes:
+      - test_pgdata:/var/lib/postgresql/data
+      - ./backend/db/test-instance-init.sql:/docker-entrypoint-initdb.d/10-test-marker.sql:ro
+    networks: [test_isolated]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uni_shortlist_test -d uni_shortlist_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test-migrate:
+    build: ./backend
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      TEST_DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      UNISHORTLIST_TEST_MODE: "1"
+      MIGRATION_TARGET: test
+    command: ["sh", "-c", "python -m app.db.safety verify && alembic upgrade head"]
+    depends_on:
+      db-test:
+        condition: service_healthy
+    networks: [test_isolated]
+
+  test-seed:
+    build: ./backend
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      TEST_DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      UNISHORTLIST_TEST_MODE: "1"
+      SEED_TARGET: test
+    command: ["python", "-m", "app.db.seed"]
+    depends_on:
+      db-test:
+        condition: service_healthy
+    networks: [test_isolated]
+
+  test-runner:
+    build: ./backend
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      TEST_DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      UNISHORTLIST_TEST_MODE: "1"
+    command: ["sh", "-c", "python -m app.db.safety verify && python -m pytest"]
+    volumes:
+      - ./backend/tests:/app/tests:ro
+      - ./backend/pytest.ini:/app/pytest.ini:ro
+    depends_on:
+      db-test:
+        condition: service_healthy
+    networks: [test_isolated]
+
+  api-test:
+    build: ./backend
+    profiles: [test]
+    environment:
+      DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      TEST_DATABASE_URL: postgresql+psycopg://uni_shortlist_test:${TEST_DB_PASSWORD:?Set TEST_DB_PASSWORD}@db-test:5432/uni_shortlist_test
+      UNISHORTLIST_TEST_MODE: "1"
+      ENVIRONMENT: test
+      ENABLE_SCHEDULER: "false"
+      SEED_DEMO_DATA: "false"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      db-test:
+        condition: service_healthy
+    networks:
+      test_isolated:
+        aliases: [api]
+
+  nginx-test:
+    build:
+      context: ./frontend
+      target: prod
+    profiles: [test]
+    ports:
+      - "127.0.0.1:${TEST_WEB_PORT:-8081}:80"
+    depends_on: [api-test]
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [test_isolated, test_ingress]
+
+volumes:
+  test_pgdata:
+    name: ${COMPOSE_PROJECT_NAME:-uni-grp-prj}_test_pgdata
+
+networks:
+  test_isolated:
+    internal: true
+  # Only the loopback-published test reverse proxy joins this ingress network;
+  # the test API and database remain exclusively on the internal network.
+  test_ingress: {}

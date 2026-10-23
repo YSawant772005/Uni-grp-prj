@@ -187,6 +187,13 @@ Purpose: institution identity; does not itself represent a degree program.
 Unique/indexes: country + normalized name; external identifier where unique and available. Do not use fuzzy name as the sole permanent identity key.
 Notes: recognition is evidence-backed and date-sensitive; it must not be a free-form unsupported claim.
 
+### `institution_identifiers`
+Stores source-attributed identifier claims separately from the legacy JSONB compatibility field.
+Each claim includes source key/source row, source document, namespace, normalized value,
+institution/campus/reporting-unit scope, and claim status. Accepted authoritative identifiers
+are unique by namespace, normalized value, and scope. Conflicting legacy claims are preserved
+as conflicted; a migration never chooses a canonical winner.
+
 ### 4.10 `campuses`
 - `id UUID PK`
 - `university_id FK universities NOT NULL`
@@ -215,7 +222,20 @@ Purpose: normalized degree-program identity.
 - `is_active BOOLEAN NOT NULL DEFAULT true`
 - `publication_status VARCHAR NOT NULL DEFAULT 'candidate'` (`candidate`, `published`, `hidden`, `retired`)
 - `created_at`, `updated_at`, `published_at TIMESTAMPTZ NULL`
-Unique: university + normalized program name + degree level/campus where appropriate. Do not merge distinct programs solely because names look similar.
+Program titles and slugs are descriptive fields, not permanent identity keys. Source-specific
+keys are stored in `program_identifiers`; uniqueness applies to accepted source/key claims.
+Do not merge distinct programs solely because names look similar.
+
+### `program_identifiers`
+Stores source-specific stable program keys with source-document provenance and claim status.
+Reimports resolve by source key; a source key already attached to a different institution is
+held for review. Programme title similarity is not sufficient identity evidence.
+
+### `institution_identity_reviews` / `institution_identity_review_events`
+Persist ambiguous or weak source-to-institution candidates for reviewer decisions. Events are
+append-only and include reviewer, timestamp, reason, and before/after summaries. An approved
+link adds the source identifiers to the selected canonical institution; it does not physically
+merge or delete institutions.
 
 ### 4.12 `program_intakes`
 Purpose: intake-specific information and deadline applicability.
@@ -774,3 +794,39 @@ Rules:
 - Cost, scholarship, loan and outcome records preserve currency/period/scope/source.
 - Ingestion can be re-run safely and never auto-promotes unsupported AI output to verified fact.
 - The data dictionary and ERD match actual SQLAlchemy models and migrations.
+
+## 13. Catalogue provenance archive (revision 85b2e4a6c910)
+
+`catalogue_reset_operations` stores immutable operation UUID/time, named operator,
+reason, original revision, independent backup path/hash and the exact approved
+manifest with pre-reset table fingerprints, deletion counts and protected row sets.
+
+`catalogue_archive_records` has composite primary key
+`(operation_id, table_name, record_key)`, the complete original JSONB row and SHA-256
+of that row. Its only foreign key is to the reset operation with deletion restricted.
+Both archive tables reject update/delete through PostgreSQL triggers. Original
+entity/review/document IDs and timestamps remain inside independent row payloads.
+
+`institution_reviews.archived_operation_id` and
+`institution_identity_reviews.archived_operation_id` reference the immutable
+operation. Institution review rows have either an active university or an archive
+reference, with a database check requiring exactly the supported association.
+Archived identity review rows have null live university links; originals survive
+in the archive. Identity source/key uniqueness is partial to active reviews so a
+future genuine rediscovery can create a new active review without overwriting history.
+Existing review events and audit events remain live and immutable.
+
+Reset planning checks protected student associations and polymorphic fact links;
+execution locks the application tables, verifies archived rows, deletes only the
+approved catalogue scope and checks protected hashes in one transaction. No
+destructive startup hook or HTTP endpoint exists. Downgrade refuses existing archives.
+
+No second approval system or guessed joint-award graph was introduced. Existing
+source identifiers and versioned facts represent source offering, qualification,
+pathway, study stage and applicability. Explicit human fact approval can project
+complete supported fees/admissions/intakes into existing relational tables; unknown
+or raw prose remains evidence. Unsupported joint/consortium rows remain held.
+
+See [the archive runbook](CATALOGUE_ARCHIVE_RESET_RUNBOOK.md) for the rehearsed and
+approved reset and [the implementation report](MASTERS_IMPLEMENTATION_REPORT.md)
+for verified counts, source limitations and current deployment state.

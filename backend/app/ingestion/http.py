@@ -21,9 +21,11 @@ RETRY_STATUSES = {408, 425, 429, 500, 502, 503, 504}
 
 
 class FetchError(RuntimeError):
-    def __init__(self, url: str, reason: str, status: int | None = None, permanent: bool = False):
+    def __init__(self, url: str, reason: str, status: int | None = None,
+                 permanent: bool = False, attempts: int = 1):
         super().__init__(f"{url}: {reason}")
         self.url, self.reason, self.status, self.permanent = url, reason, status, permanent
+        self.attempts = attempts
 
 
 @dataclass
@@ -93,7 +95,8 @@ class Fetcher:
         self.close()
 
     def get(self, url: str, *, headers: dict[str, str] | None = None,
-            etag: str | None = None, last_modified: str | None = None) -> HttpResult:
+            etag: str | None = None, last_modified: str | None = None,
+            follow_redirects: bool = True) -> HttpResult:
         """GET with retries. Conditional headers turn an unchanged page into 304."""
         conditional = dict(headers or {})
         if etag:
@@ -104,7 +107,7 @@ class Fetcher:
         for attempt in range(1, self.max_retries + 1):
             self.limiter.acquire()
             try:
-                response = self._client.get(url, headers=conditional)
+                response = self._client.get(url, headers=conditional, follow_redirects=follow_redirects)
             except httpx.HTTPError as exc:
                 last_error = exc
                 logger.warning("fetch error url=%s attempt=%s error=%s", url, attempt, exc)
@@ -121,11 +124,12 @@ class Fetcher:
                 continue
             if response.status_code >= 400:
                 raise FetchError(url, f"HTTP {response.status_code}", response.status_code,
-                                 permanent=True)
+                                 permanent=True, attempts=attempt)
             return HttpResult(url, response.status_code, response.content,
                               dict(response.headers), False, attempt)
         raise FetchError(url, f"exhausted {self.max_retries} attempts: {last_error}",
-                         getattr(last_error, "status", None), permanent=True)
+                         getattr(last_error, "status", None), permanent=True,
+                         attempts=self.max_retries)
 
     def _sleep(self, attempt: int, retry_after: str | None) -> None:
         delay = retry_after and retry_after.isdigit() and float(retry_after) or \

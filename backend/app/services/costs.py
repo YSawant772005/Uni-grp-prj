@@ -13,11 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.services import catalog
 from app.models import (
     Campus,
     City,
     CostScenario,
     CostScenarioItem,
+    FactRecord,
     LivingCostFact,
     Program,
     ProgramFee,
@@ -46,30 +48,52 @@ def _tuition_items(db: Session, program: Program) -> dict:
         ProgramFee.program_id == program.id,
         ProgramFee.fee_type.in_(("tuition", "mandatory_fee"))).order_by(ProgramFee.id)).all()
     items: dict[str, dict] = {}
-    months = program.duration_max_months or 0
-    for fee in fees:
-        key = fee.fee_type
-        if fee.amount is None:
-            items.setdefault(key, _money(None, None, None, "unavailable",
-                                         note="No published figure in the catalogue."))
+    months = program.duration_max_months
+    # Academic years and student categories are alternatives, not additive fees.
+    for kind in ("tuition", "mandatory_fee"):
+        rows = [fee for fee in fees if fee.fee_type == kind]
+        if not rows:
             continue
-        # scale recurring periods across the program duration; one-time stays as published
-        repeats, note = fee.amount, None
-        if fee.period == "semester" and months:
-            repeats = fee.amount * ((months + 5) // 6)
-            note = f"Assumes the published per-semester fee repeats across {months} months."
-        elif fee.period == "academic_year" and months:
-            repeats = (fee.amount * Decimal(months) / Decimal(12)).quantize(Decimal("0.01"))
-        elif fee.period == "month" and months:
-            repeats = fee.amount * months
-        total = repeats
-        existing = items.get(key)
-        if existing and existing["value"] is not None:
-            existing["value"] += total
-            if fee.status == "unavailable":
-                existing["status"] = "unavailable"
-        else:
-            items[key] = _money(total, fee.currency, "full_program", fee.status, note=note)
+        latest_year = max((fee.academic_year or "" for fee in rows), default="")
+        rows = [fee for fee in rows if (fee.academic_year or "") == latest_year]
+        if len({fee.student_category for fee in rows if fee.amount is not None}) > 1:
+            items[kind] = _money(None, None, None, "unavailable",
+                note="Different student-category fees are published; an applicable category is required.")
+            continue
+        if len({fee.currency for fee in rows if fee.amount is not None}) > 1:
+            items[kind] = _money(None, None, None, "unavailable", note="Fee components use different currencies.")
+            continue
+        total, status, unknown, notes = Decimal(0), "verified", False, []
+        currency = next((fee.currency for fee in rows if fee.currency), None)
+        for fee in rows:
+            fact = db.get(FactRecord, fee.fact_id) if fee.fact_id else None
+            evidence_status = fact.current_status if fact else fee.status
+            if fee.amount is None or evidence_status in ("candidate", "in_review", "conflicted", "stale", "rejected", "unavailable", "superseded"):
+                unknown = True
+                status = evidence_status if evidence_status in ("conflicted", "stale") else "unavailable"
+                notes.append("A fee is missing or its source evidence needs review; excluded from totals.")
+                continue
+            if fee.period in ("semester", "academic_year", "month", "year") and not months:
+                unknown = True
+                notes.append("Program duration is unknown; a recurring fee cannot establish the full-degree cost.")
+                continue
+            if fee.period in ("other", None):
+                unknown = True
+                notes.append("The fee time basis is insufficient for a full-degree calculation.")
+                continue
+            multiplier = {"semester": Decimal((months + 5) // 6) if months else 1,
+                          "academic_year": Decimal(months) / 12 if months else 1,
+                          "year": Decimal(months) / 12 if months else 1,
+                          "month": months or 1}.get(fee.period, 1)
+            total += fee.amount * multiplier
+            if fee.period in ("semester", "academic_year", "year", "month"):
+                notes.append(f"Assumes the published {fee.period} fee repeats over {months} months.")
+            if evidence_status != "verified" and status == "verified":
+                status = evidence_status
+        items[kind] = _money(None if unknown else total.quantize(Decimal("0.01")), currency,
+                             "full_program", status if not unknown or status in ("conflicted", "stale") else "unavailable",
+                             note=" ".join(dict.fromkeys(notes)) or None)
+
     return items
 
 
@@ -142,7 +166,7 @@ def calculate(db: Session, *, program_id: uuid.UUID, scenario: str = "base",
                        [{"field": "scenario", "code": "invalid_choice",
                          "message": f"scenario must be one of {', '.join(SCENARIOS)}."}])
     program = db.get(Program, program_id)
-    if program is None or program.publication_status != "published" or not program.is_active:
+    if program is None or not catalog.student_visible_program(db, program):
         raise ApiError(404, "NOT_FOUND", "Program not found.")
 
     warnings: list[str] = []
@@ -163,6 +187,10 @@ def calculate(db: Session, *, program_id: uuid.UUID, scenario: str = "base",
 
     known = [i for i in items if i["amount"] is not None and i["currency"] == target]
     unknown = [i for i in items if i["amount"] is None]
+    for item in unknown:
+        if "zero" not in (item.get("note") or ""):
+            item["note"] = ((item.get("note") or "")
+                            + " Unknown costs are excluded from totals and never counted as zero.").strip()
     total = sum(i["amount"] for i in known) if known else None
     if unknown:
         warnings.append("components_unavailable:" + ",".join(i["cost_type"] for i in unknown))
@@ -232,7 +260,7 @@ def save_scenario(db: Session, user: User, payload: dict) -> dict:
 def program_cost_facts(db: Session, program_id: uuid.UUID) -> dict:
     """GET /programs/{id}/cost-estimates — facts for all three scenarios, no saving."""
     program = db.get(Program, program_id)
-    if program is None or program.publication_status != "published" or not program.is_active:
+    if program is None or not catalog.student_visible_program(db, program):
         raise ApiError(404, "NOT_FOUND", "Program not found.")
     return {"program_id": program.id,
             "scenarios": {s: calculate(db, program_id=program_id, scenario=s)

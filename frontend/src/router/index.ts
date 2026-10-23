@@ -180,6 +180,30 @@ const routes: RouteRecordRaw[] = [
         meta: { title: 'Fact review', roles: ['reviewer', 'admin'] },
       },
       {
+        path: 'identity-reviews',
+        name: 'admin-identity-reviews',
+        component: () => import('../features/admin/IdentityReviewView.vue'),
+        meta: { title: 'Institution identity review', roles: ['reviewer', 'admin'] },
+      },
+      {
+        path: 'institution-reviews',
+        name: 'admin-institution-reviews',
+        component: () => import('../features/admin/InstitutionReviewView.vue'),
+        meta: { title: 'Institution approval review', roles: ['reviewer', 'admin'] },
+      },
+      {
+        path: 'institution-reviews/:universityId',
+        name: 'admin-institution-review',
+        component: () => import('../features/admin/InstitutionReviewView.vue'),
+        meta: { title: 'Institution review detail', roles: ['reviewer', 'admin'] },
+      },
+      {
+        path: 'program-publication',
+        name: 'admin-program-publication',
+        component: () => import('../features/admin/ProgramPublicationView.vue'),
+        meta: { title: 'Program publication review', roles: ['reviewer', 'admin'] },
+      },
+      {
         path: 'sources',
         name: 'admin-sources',
         component: () => import('../features/admin/SourcesView.vue'),

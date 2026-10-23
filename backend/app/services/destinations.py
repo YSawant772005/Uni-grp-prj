@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
@@ -18,9 +18,11 @@ from app.models import (
     Field,
     LivingCostFact,
     OfficialRuleResource,
+    Program,
     ProgramOutcomeEvidence,
     University,
 )
+from app.services import catalog
 
 
 def list_countries(db: Session) -> list[dict]:
@@ -128,7 +130,15 @@ def list_rules(db: Session, country: str | None = None, rule_type: str | None = 
 def search_outcomes(db: Session, *, program_id: uuid.UUID | None = None,
                     field: str | None = None, country: str | None = None,
                     metric: str | None = None, page: int = 1, page_size: int = 20) -> dict:
-    conds = []
+    # Aggregate outcomes without a program identity remain available, but a
+    # program-scoped outcome follows the same publication and institution gate
+    # as the catalogue and program detail endpoints.
+    visible_programs = select(Program.id).where(
+        Program.publication_status == "published", Program.is_active.is_(True),
+        catalog.institution_approved_clause(),
+    )
+    conds = [or_(ProgramOutcomeEvidence.program_id.is_(None),
+                 ProgramOutcomeEvidence.program_id.in_(visible_programs))]
     if program_id:
         conds.append(ProgramOutcomeEvidence.program_id == program_id)
     if field:

@@ -44,6 +44,7 @@ Navigation may adapt for small screens, but the same core destinations and autho
 
 ### 3.2 Admin/research navigation
 - Data review queue
+- Institution identity review
 - Sources registry
 - Ingestion/refresh jobs
 - Fact and source history
@@ -88,6 +89,7 @@ Admin navigation must never be shown as an authorization mechanism by itself. Ev
 | `/admin` | Admin/reviewer only | Admin overview | Navigate to review, sources and jobs |
 | `/admin/review` | Reviewer/admin only | Candidate facts awaiting review | Inspect evidence, approve/reject/request changes |
 | `/admin/review/:factId` | Reviewer/admin only | Fact detail, conflicts, source history | Verify, reject with reason, record correction |
+| `/admin/identity-reviews` | Reviewer/admin only | Ambiguous source institution candidates and source evidence | Approve a source identifier link to an existing institution, reject, or defer with reason; no physical merge |
 | `/admin/sources` | Admin/reviewer according to policy | Source registry and source-use policy | Add/edit source, disable source, inspect policy |
 | `/admin/sources/:sourceId` | Admin/reviewer according to policy | Source details and field coverage | Edit metadata, test URL, review ingestion history |
 | `/admin/jobs` | Admin only | Ingestion and refresh job history | Inspect/retry/cancel where safe |

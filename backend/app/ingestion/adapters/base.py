@@ -28,6 +28,7 @@ class RunContext:
     checkpoint: dict = field(default_factory=dict)
     dry_run: bool = False
     offline: bool = False
+    query: str | None = None
 
 
 @dataclass
@@ -53,6 +54,7 @@ class AdapterSpec:
     max_workers: int = 4
     timeout_seconds: float = 60.0
     notes: str | None = None
+    requires_explicit_limit: bool = False
 
 
 class SourceAdapter(ABC):
@@ -65,4 +67,5 @@ class SourceAdapter(ABC):
     @staticmethod
     def document_from_http(url: str, result, **kwargs) -> SourceDoc:
         return SourceDoc(url=url, content=result.content, http_status=result.status,
-                         etag=result.etag, last_modified=result.last_modified, **kwargs)
+                         etag=result.etag, last_modified=result.last_modified,
+                         retrieval_attempt_count=getattr(result, "attempts", 1), **kwargs)

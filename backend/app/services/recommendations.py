@@ -27,6 +27,7 @@ from app.models import (
     University,
 )
 from app.services import eligibility as eligibility_engine
+from app.services.catalog import institution_approved_clause, student_visible_program
 from app.services import scoring as scoring_engine
 
 DEFAULT_LIMIT_PER_TIER = 20
@@ -133,7 +134,8 @@ def create_run(db: Session, user, profile, filters: dict | None, limit_per_tier:
     weights = _weights(ruleset)
     tier_limits = (ruleset.scoring_config or {}).get("tiers", {})
 
-    conds = [Program.publication_status == "published", Program.is_active.is_(True)]
+    conds = [Program.publication_status == "published", Program.is_active.is_(True),
+             institution_approved_clause()]
     if filters.get("countries"):
         conds.append(Program.country_code.in_([c.upper() for c in filters["countries"]]))
     if filters.get("fields"):
@@ -161,7 +163,7 @@ def create_run(db: Session, user, profile, filters: dict | None, limit_per_tier:
     eligible_count = 0
 
     for program, reasons in excluded:
-        ev = eligibility_engine.evaluate_program(profile, eligibility_engine.load_requirements(db, program.id))
+        ev = eligibility_engine.evaluate_for_program(db, profile, program.id)
         item = RecommendationItem(
             run_id=run.id, program_id=program.id, tier=None,
             eligibility_status=ev["status"], fit_score=None, score_breakdown=None,
@@ -173,7 +175,7 @@ def create_run(db: Session, user, profile, filters: dict | None, limit_per_tier:
         _persist_evaluations(db, item, ev)
 
     for program in allowed:
-        ev = eligibility_engine.evaluate_program(profile, eligibility_engine.load_requirements(db, program.id))
+        ev = eligibility_engine.evaluate_for_program(db, profile, program.id)
         if ev["status"] == "ineligible":
             item = RecommendationItem(
                 run_id=run.id, program_id=program.id, tier=None,
@@ -256,6 +258,12 @@ def _persist_evaluations(db: Session, item: RecommendationItem, ev: dict) -> Non
 
 def _item_out(db: Session, item: RecommendationItem) -> dict:
     program = db.get(Program, item.program_id)
+    if program is None or not student_visible_program(db, program):
+        return {"id": item.id, "program_id": item.program_id, "program_name": None,
+                "university": None, "country_code": None, "tier": None,
+                "eligibility_status": "unknown_needs_review", "fit_score": None,
+                "reason_codes": ["institution_review_required"],
+                "concerns": [], "missing_information": ["institution is not approved"]}
     university = db.get(University, program.university_id) if program else None
     return {
         "id": item.id,
@@ -278,7 +286,12 @@ def run_out(db: Session, run: RecommendationRun) -> dict:
                             .order_by(RecommendationItem.fit_score.desc().nulls_last())).all())
     by_tier: dict[str, list] = {"ambitious": [], "target": [], "safer_fit": []}
     excluded_count = 0
+    hidden_count = 0
     for item in items:
+        program = db.get(Program, item.program_id)
+        if program is None or not student_visible_program(db, program):
+            hidden_count += 1
+            continue
         if item.tier is None:
             excluded_count += 1
             continue
@@ -290,7 +303,9 @@ def run_out(db: Session, run: RecommendationRun) -> dict:
         "ruleset_version": _ruleset_version(db, run),
         "tiers": by_tier,
         "excluded_count": excluded_count,
-        "data_warnings": run.warning_summary or [],
+        "data_warnings": (run.warning_summary or []) +
+                         (["Some historical results are no longer visible pending institution review."]
+                          if hidden_count else []),
         "result_summary": run.result_summary,
     }
 
@@ -325,6 +340,9 @@ def explanations(db: Session, user, run_id: uuid.UUID) -> dict:
                        .order_by(RecommendationItem.fit_score.desc().nulls_last())).all()
     out = []
     for item in items:
+        program = db.get(Program, item.program_id)
+        if program is None or not student_visible_program(db, program):
+            continue
         evaluations = db.scalars(select(RequirementEvaluation)
                                  .where(RequirementEvaluation.recommendation_item_id == item.id)).all()
         entry = _item_out(db, item)

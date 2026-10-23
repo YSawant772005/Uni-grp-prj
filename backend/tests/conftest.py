@@ -1,15 +1,33 @@
-"""Test fixtures.
-
-Safety: tests refuse to run unless DATABASE_URL points at a database whose name
-contains ``_test``, so a developer database can never be truncated by mistake.
-"""
+"""Test fixtures with a fail-closed isolated PostgreSQL identity gate."""
 from __future__ import annotations
 
+import os
 import uuid
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
+
+# This runs while pytest loads conftest, before test modules import application
+# settings, engines, TestClient, fixtures, or destructive helpers.
+from app.db.safety import verify_connected, verify_test_target, validate_test_url
+
+_test_url = os.environ.get("TEST_DATABASE_URL")
+if os.environ.get("UNISHORTLIST_TEST_MODE") != "1" or not _test_url:
+    raise RuntimeError(
+        "Refusing pytest startup: set UNISHORTLIST_TEST_MODE=1 and TEST_DATABASE_URL "
+        "for the isolated db-test service."
+    )
+validate_test_url(_test_url)
+_database_url = os.environ.get("DATABASE_URL")
+if not _database_url or make_url(_database_url) != make_url(_test_url):
+    raise RuntimeError("Refusing pytest startup: DATABASE_URL must exactly match TEST_DATABASE_URL.")
+_app_database_url = os.environ.get("APP_DATABASE_URL")
+if _app_database_url and make_url(_app_database_url) != make_url(_test_url):
+    raise RuntimeError("Refusing pytest startup: APP_DATABASE_URL must exactly match TEST_DATABASE_URL.")
+os.environ["APP_DATABASE_URL"] = _test_url
+verify_test_target(_test_url)
 
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -18,6 +36,8 @@ from app.models import Role, StudentProfile, User, UserRole
 
 
 def _truncate_all(session: Session) -> None:
+    validate_test_url(settings.runtime_database_url)
+    verify_connected(session.connection())
     rows = session.execute(
         text(
             "SELECT tablename FROM pg_tables WHERE schemaname='public' "
@@ -42,7 +62,6 @@ def client():
 
 @pytest.fixture()
 def db():
-    assert "_test" in settings.database_url, "tests require a *_test database"
     session = SessionLocal()
     _truncate_all(session)
     run_seed(session)

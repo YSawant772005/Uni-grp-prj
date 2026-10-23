@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://uni_shortlist:change_me_local_only@localhost:5433/uni_shortlist"
     )
+    app_database_url: str | None = None
+    unishortlist_test_mode: bool = False
 
     jwt_secret: str = "dev-only-insecure-secret-change-me"
     jwt_algorithm: str = "HS256"
@@ -38,6 +40,18 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
+
+    @property
+    def runtime_database_url(self) -> str:
+        if self.app_database_url:
+            return self.app_database_url
+        if self.unishortlist_test_mode:
+            # Test startup has its own fail-closed TEST_DATABASE_URL identity gate.
+            return self.database_url
+        raise RuntimeError(
+            "APP_DATABASE_URL is required for application runtime; "
+            "DATABASE_URL is reserved for explicit database administration."
+        )
 
 
 @lru_cache

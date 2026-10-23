@@ -16,6 +16,7 @@ from app.ingestion.types import CandidateFact, CandidateInstitution, CandidatePr
 DEGREE_LEVELS = {"bachelors", "masters", "phd", "diploma", "certificate", "other"}
 STUDY_MODES = {"full_time", "part_time", "online", "blended", "unknown"}
 INSTITUTION_TYPES = {"public", "private", "non_profit", "for_profit", "unknown"}
+INTAKE_TERMS = {"fall", "spring", "winter", "summer", "other"}
 MAX_TITLE = 250
 
 
@@ -36,6 +37,9 @@ def _is_real_url(url: object) -> bool:
 def validate_institution(candidate: CandidateInstitution) -> list[Issue]:
     issues: list[Issue] = []
     name = clean_text(candidate.name)
+    if not candidate.external_key or len(candidate.external_key) > 200:
+        issues.append(Issue("external_key", "invalid",
+                            "Institution source identifier is missing or exceeds 200 characters."))
     if not name:
         issues.append(Issue("name", "required", "Official institution name is missing."))
     elif len(name) > MAX_TITLE:
@@ -53,6 +57,13 @@ def validate_institution(candidate: CandidateInstitution) -> list[Issue]:
     for key, value in candidate.identifiers.items():
         if not clean_text(key) or not clean_text(value):
             issues.append(Issue("identifiers", "invalid", f"Identifier {key!r} has no usable value."))
+        scope = candidate.identifier_scopes.get(key, "reporting_unit" if key in {"ipeds_unitid", "uai"}
+                                               else "institution")
+        if scope not in {"institution", "campus", "reporting_unit"}:
+            issues.append(Issue("identifier_scopes", "invalid", f"Identifier scope {scope!r} is unknown."))
+        if scope == "campus" and not candidate.identifier_campus_ids.get(key):
+            issues.append(Issue("identifier_campus_ids", "required",
+                                f"Campus-scoped identifier {key!r} must reference a campus."))
     if candidate.website and not _is_real_url(candidate.website):
         issues.append(Issue("website", "invalid_url", f"Official website {candidate.website!r} is not a usable URL."))
     if candidate.institution_type and candidate.institution_type not in INSTITUTION_TYPES:
@@ -68,6 +79,9 @@ def validate_institution(candidate: CandidateInstitution) -> list[Issue]:
 
 def validate_program(program: CandidateProgram) -> list[Issue]:
     issues: list[Issue] = []
+    if not program.external_key or len(program.external_key) > 250:
+        issues.append(Issue("external_key", "invalid",
+                            "Program source identifier is missing or exceeds 250 characters."))
     title = clean_text(program.title)
     if not title:
         issues.append(Issue("title", "required", "Program title is missing."))
@@ -105,13 +119,22 @@ def validate_facts(facts: Iterable[CandidateFact]) -> list[Issue]:
         if fact.confidence is not None and not 0 <= fact.confidence <= 1:
             issues.append(Issue("confidence", "out_of_range",
                                 "Extraction confidence must be within [0, 1]."))
+        if fact.applicable_intake_year is not None and (
+                isinstance(fact.applicable_intake_year, bool)
+                or not isinstance(fact.applicable_intake_year, int)
+                or not 1900 <= fact.applicable_intake_year <= 2200):
+            issues.append(Issue("applicable_intake_year", "out_of_range",
+                                "Applicable intake year must be an integer from 1900 through 2200."))
+        if fact.applicable_intake_term is not None and fact.applicable_intake_term not in INTAKE_TERMS:
+            issues.append(Issue("applicable_intake_term", "invalid",
+                                "Applicable intake term must be fall, spring, winter, summer, or other."))
     return issues
 
 
 def institution_match_quality(candidate: CandidateInstitution,
                               resolved_by: str | None) -> list[Issue]:
     """Low-confidence identity merges are surfaced for review, never silently kept."""
-    if resolved_by in ("external_id", None):
+    if resolved_by in ("external_id", "reviewed_link", None):
         return []
     return [Issue("identity", "weak_match",
                   f"Institution matched to an existing record only via {resolved_by!r}; "

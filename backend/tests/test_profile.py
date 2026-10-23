@@ -35,7 +35,6 @@ def generous_rate_limit():
 
 @pytest.fixture(scope="module")
 def _seeded():
-    assert "_test" in settings.database_url, "tests require a *_test database"
     session = SessionLocal()
     _truncate_all(session)
     run_seed(session)

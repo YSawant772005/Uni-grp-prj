@@ -133,13 +133,19 @@ function setPage(page: number) {
                 <td>
                   <strong>{{ item.entity_label ?? '—' }}</strong>
                   <div class="small muted">{{ humanize(item.entity_type) }}</div>
+                  <a v-if="item.entity_context?.type === 'university' && item.entity_context.official_website_url"
+                    class="small" :href="item.entity_context.official_website_url" target="_blank" rel="noopener noreferrer">
+                    Official university website
+                  </a>
                 </td>
                 <td>
                   {{ item.fact_key }}
                   <div v-if="item.applicability_key" class="small muted">{{ item.applicability_key }}</div>
                 </td>
                 <td><StatusBadge :status="item.current_status" /></td>
-                <td class="mono small" style="max-width: 220px">{{ valuePreview(item.current_value) }}</td>
+                <td class="small" style="max-width: 280px">
+                  {{ item.display_value?.summary ?? valuePreview(item.current_value) }}
+                </td>
                 <td class="small">{{ item.version_count }} / {{ item.evidence_count }}</td>
                 <td class="small">
                   <template v-if="item.last_review">

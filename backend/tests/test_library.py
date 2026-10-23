@@ -35,7 +35,6 @@ def generous_rate_limit():
 
 @pytest.fixture(scope="module")
 def _seeded():
-    assert "_test" in settings.database_url, "tests require a *_test database"
     session = SessionLocal()
     _truncate_all(session)
     run_seed(session)
@@ -90,6 +89,23 @@ class TestSavedPrograms:
         _register(client)
         r = client.post("/api/v1/saved-programs", json={"program_id": str(uuid.uuid4())})
         assert r.status_code == 404
+
+    def test_unpublished_program_is_hidden_from_saved_list(self, db, client):
+        _register(client)
+        pid = _program_ids(db, 1)[0]
+        assert client.post("/api/v1/saved-programs", json={"program_id": pid}).status_code == 201
+
+        program = db.get(Program, uuid.UUID(pid))
+        original_status = program.publication_status
+        program.publication_status = "candidate"
+        db.commit()
+        try:
+            listing = client.get("/api/v1/saved-programs")
+            assert listing.status_code == 200
+            assert listing.json()["items"] == []
+        finally:
+            program.publication_status = original_status
+            db.commit()
 
 
 class TestCompare:

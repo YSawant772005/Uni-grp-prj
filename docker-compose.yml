@@ -5,10 +5,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-uni_shortlist}
       POSTGRES_USER: ${POSTGRES_USER:-uni_shortlist}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_local_only}
+      APP_DB_USER: ${APP_DB_USER:-uni_shortlist_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-change_me_app_local_only}
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./backend/db/20-runtime-role.sh:/docker-entrypoint-initdb.d/20-runtime-role.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -19,11 +22,27 @@ services:
     build: ./backend
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-uni_shortlist}:${POSTGRES_PASSWORD:-change_me_local_only}@db:5432/${POSTGRES_DB:-uni_shortlist}
-    # migrate, seed (idempotent), then serve
-    command: sh -c "alembic upgrade head && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      # Keep the administrative URL and password from .env out of the API process.
+      DATABASE_URL: ${APP_DATABASE_URL:-}
+      APP_DATABASE_URL: ${APP_DATABASE_URL:-}
+      POSTGRES_PASSWORD: ""
+      MIGRATION_TARGET: ${MIGRATION_TARGET:-}
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db-admin:
+    build: ./backend
+    profiles: [db-admin]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-uni_shortlist}:${POSTGRES_PASSWORD:-change_me_local_only}@db:5432/${POSTGRES_DB:-uni_shortlist}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      MIGRATION_TARGET: ${MIGRATION_TARGET:-}
+    command: ["sh", "-c", "echo 'Provide an explicit migration or seed command.' >&2; exit 2"]
     depends_on:
       db:
         condition: service_healthy

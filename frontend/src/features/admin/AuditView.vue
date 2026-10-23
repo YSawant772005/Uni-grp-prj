@@ -7,6 +7,14 @@ import { formatDateTime, humanize, valuePreview } from '../../utils/format'
 import AsyncState from '../../components/AsyncState.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 
+const archives = useAsync(() => admin.catalogueArchives(), { immediate: true })
+const selectedArchive = ref('')
+const archiveTable = ref('institution_identity_reviews')
+const archivePage = ref(1)
+const archivedRecords = useAsync(() => admin.catalogueArchiveRecords(selectedArchive.value, { table_name: archiveTable.value, page: archivePage.value }), { immediate: false })
+watch([selectedArchive, archiveTable], () => { archivePage.value = 1; if (selectedArchive.value) void archivedRecords.run() })
+watch(archivePage, () => { if (selectedArchive.value) void archivedRecords.run() })
+
 const route = useRoute()
 const router = useRouter()
 
@@ -72,6 +80,30 @@ function toggle(id: string) {
         deleted through this application.
       </p>
     </div>
+
+    <section v-if="archives.data.value?.items.length" class="card stack">
+      <h2>Historical catalogue archives</h2>
+      <p class="small muted">Original identifiers, review associations, publication decisions and evidence remain available after a catalogue reset.</p>
+      <label for="catalogue-archive">Reset operation</label>
+      <select id="catalogue-archive" v-model="selectedArchive"><option value="">Choose an archive</option>
+        <option v-for="archive in archives.data.value.items" :key="archive.id" :value="archive.id">{{ formatDateTime(archive.created_at) }} · {{ archive.operator }} · {{ archive.id }}</option>
+      </select>
+      <template v-if="selectedArchive">
+        <label for="archive-table">Archived records</label>
+        <select id="archive-table" v-model="archiveTable">
+          <option v-for="table in ['institution_identity_reviews', 'institution_identity_review_events', 'institution_reviews', 'institution_review_events', 'audit_events', 'universities', 'programs', 'program_identifiers', 'fact_records', 'fact_versions', 'fact_evidence', 'source_documents']" :key="table" :value="table">{{ humanize(table) }}</option>
+        </select>
+        <AsyncState :loading="archivedRecords.loading.value" :error="archivedRecords.error.value" :empty="!archivedRecords.data.value?.items.length" empty-title="No archived records of this type" @retry="archivedRecords.run">
+          <details v-for="record in archivedRecords.data.value?.items" :key="record.record_key"><summary>{{ record.record_key }}</summary>
+            <pre class="json-block">{{ JSON.stringify(record.payload, null, 2) }}</pre>
+            <p class="small muted">SHA-256: {{ record.row_sha256 }}</p>
+          </details>
+        </AsyncState>
+        <PaginationBar v-if="archivedRecords.data.value" :page="archivedRecords.data.value.page"
+          :page-size="archivedRecords.data.value.page_size" :total-pages="archivedRecords.data.value.total_pages"
+          :total-items="archivedRecords.data.value.total_items" @update:page="archivePage = $event" />
+      </template>
+    </section>
 
     <section class="card">
       <div class="grid">

@@ -92,7 +92,7 @@ const rows: Row[] = [
   { label: 'Country', render: (i) => i.country_code },
   { label: 'Degree level', render: (i) => humanize(i.degree_level) },
   { label: 'Duration', render: (i) => (i.duration_months ? `${i.duration_months} months` : 'Not available') },
-  { label: 'Language', render: (i) => humanize(i.language) },
+  { label: 'Language', render: (i) => humanize(i.language) || 'Not specified' },
   {
     label: 'Tuition',
     render: (i) => ({ component: 'money', cell: i.tuition }),
@@ -111,8 +111,12 @@ const rows: Row[] = [
     render: (i) => ({ component: 'status', status: i.eligibility_status, fallback: 'Not evaluated - run a shortlist first' }),
   },
   {
-    label: 'Data confidence',
-    render: (i) => ({ component: 'status', status: i.data_quality.status, fallback: 'Unknown' }),
+    label: 'Official program page',
+    render: (i) => ({ component: 'status', status: i.source_verification?.official_program_page_status ?? null, fallback: 'Not assessed' }),
+  },
+  {
+    label: 'Academic information',
+    render: (i) => i.academic_completeness ? humanize(i.academic_completeness.status) : 'Coverage not assessed',
   },
 ]
 </script>

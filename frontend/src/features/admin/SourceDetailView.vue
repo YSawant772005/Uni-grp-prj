@@ -249,6 +249,16 @@ async function saveMetadata() {
               <dd>{{ formatDateTime(source.created_at) }}</dd>
               <dt>Updated</dt>
               <dd>{{ formatDateTime(source.updated_at) }}</dd>
+              <dt>Last checked</dt>
+              <dd>{{ formatDateTime(source.last_checked_at) }}</dd>
+              <dt>Last successful check</dt>
+              <dd>{{ formatDateTime(source.last_success_at) }}</dd>
+              <dt>Last content change</dt>
+              <dd>{{ formatDateTime(source.last_content_changed_at) }}</dd>
+              <dt>Automatic refresh</dt>
+              <dd>{{ humanize(source.scheduling?.state ?? 'awaiting_operational_approval') }}<span v-if="source.scheduling?.max_records"> · limit {{ source.scheduling.max_records }} records</span></dd>
+              <dt>Next scheduled refresh</dt>
+              <dd>{{ formatDateTime(source.next_refresh_at) }} · {{ humanize(source.freshness_status ?? 'unknown') }}</dd>
             </dl>
           </section>
 
@@ -275,7 +285,7 @@ async function saveMetadata() {
               <tr>
                 <th>Type</th>
                 <th>Status</th>
-                <th>Records (seen/created/updated/rejected)</th>
+                <th>Entity rows (seen/created/updated/rejected)</th>
                 <th>Started</th>
                 <th>Error</th>
               </tr>
@@ -284,7 +294,14 @@ async function saveMetadata() {
               <tr v-for="job in source.recent_jobs" :key="job.id">
                 <td>{{ humanize(job.job_type) }}</td>
                 <td><StatusBadge :status="job.status" /></td>
-                <td class="small mono">{{ job.records_seen }}/{{ job.records_created }}/{{ job.records_updated }}/{{ job.records_rejected }}</td>
+                <td class="small mono">
+                  {{ job.records_seen }}/{{ job.records_created }}/{{ job.records_updated }}/{{ job.records_rejected }}
+                  <div v-if="job.metrics?.version === 2" class="muted">
+                    I {{ job.metrics.institutions?.created ?? 0 }} · P {{ job.metrics.programs?.created ?? 0 }} ·
+                    F {{ job.metrics.facts?.created ?? 0 }} / {{ job.metrics.facts?.updated ?? 0 }} / {{ job.metrics.facts?.unchanged ?? 0 }}
+                  </div>
+                  <div v-else class="muted">legacy aggregate</div>
+                </td>
                 <td class="small">{{ formatDateTime(job.started_at) }}</td>
                 <td class="small">{{ job.error_summary ?? '—' }}</td>
               </tr>
@@ -305,7 +322,9 @@ async function saveMetadata() {
                 <th>Type</th>
                 <th>Fetch</th>
                 <th>HTTP</th>
-                <th>Retrieved</th>
+                <th>Source period / publication</th>
+                <th>First retrieved / last checked</th>
+                <th>Content last changed</th>
               </tr>
             </thead>
             <tbody>
@@ -319,12 +338,32 @@ async function saveMetadata() {
                 <td class="small">{{ document.document_type ? humanize(document.document_type) : '—' }}</td>
                 <td class="small"><StatusBadge :status="document.fetch_status" /></td>
                 <td class="small">{{ document.http_status ?? '—' }}</td>
-                <td class="small">{{ formatDateTime(document.retrieved_at) }}</td>
+                <td class="small">{{ document.academic_period ?? 'Period unknown' }}<br />{{ formatDateTime(document.source_published_at) }}</td>
+                <td class="small">{{ formatDateTime(document.retrieved_at) }}<br />{{ formatDateTime(document.last_checked_at) }}</td>
+                <td class="small">{{ formatDateTime(document.last_content_changed_at) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p v-else class="muted">No documents retrieved from this source yet.</p>
+      </section>
+      <section class="card">
+        <h2>Recent retrieval checks</h2>
+        <div v-if="source.retrieval_attempts.length" class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Checked</th><th>Outcome</th><th>HTTP</th><th>Attempts</th><th>URL / diagnostic</th></tr></thead>
+            <tbody>
+              <tr v-for="(attempt, index) in source.retrieval_attempts" :key="`${attempt.canonical_url}-${attempt.attempted_at}-${index}`">
+                <td class="small">{{ formatDateTime(attempt.attempted_at) }}</td>
+                <td><StatusBadge :status="attempt.outcome" /></td>
+                <td>{{ attempt.http_status ?? '—' }}</td>
+                <td>{{ attempt.attempt_count }}</td>
+                <td class="small"><a :href="attempt.canonical_url" target="_blank" rel="noopener noreferrer">{{ attempt.canonical_url }}</a><div v-if="attempt.error_summary" class="error">{{ attempt.error_summary }}</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="muted">No retrieval attempts recorded in the new retrieval history yet.</p>
       </section>
     </div>
   </AsyncState>

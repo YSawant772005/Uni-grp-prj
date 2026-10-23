@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass, field as dc_field
 from datetime import datetime, timezone
 
@@ -32,9 +33,14 @@ from app.models import (
     FactRecord,
     FactVersion,
     Field,
+    InstitutionIdentityReview,
+    InstitutionIdentifier,
+    InstitutionReview,
     Program,
+    ProgramIdentifier,
     Source,
     SourceDocument,
+    SourceDocumentRetrieval,
     University,
 )
 
@@ -46,7 +52,7 @@ VERIFIED = "verified"
 #: across institutions and would silently fuse unrelated universities.
 IDENTITY_NAMESPACES = frozenset({
     "ror", "ror_grid", "ror_isni", "ror_wikidata", "ror_ringgold",
-    "ipeds_unitid", "grid", "isni", "wikidata",
+    "ipeds_unitid", "uai", "rio_provider_id", "grid", "isni", "wikidata",
 })
 
 
@@ -58,17 +64,31 @@ class Counters:
     unchanged: int = 0
     rejected: int = 0
     review: int = 0
+    conflicted: int = 0
     skipped: int = 0
     documents: int = 0
     documents_unchanged: int = 0
     fields: int = 0
+    institutions_seen: int = 0
+    institutions_created: int = 0
+    institutions_updated: int = 0
+    institutions_unchanged: int = 0
+    programs_seen: int = 0
+    programs_created: int = 0
+    programs_updated: int = 0
+    programs_unchanged: int = 0
+    programs_rejected: int = 0
+    programs_review_required: int = 0
     validation_errors: list = dc_field(default_factory=list)
     http_failures: list = dc_field(default_factory=list)
     warnings: list = dc_field(default_factory=list)
 
     def merge(self, other: "Counters") -> None:
-        for name in ("seen", "created", "updated", "unchanged", "rejected", "review", "skipped",
-                     "documents", "documents_unchanged", "fields"):
+        for name in ("seen", "created", "updated", "unchanged", "rejected", "review", "conflicted", "skipped",
+                     "documents", "documents_unchanged", "fields", "institutions_seen",
+                     "institutions_created", "institutions_updated", "institutions_unchanged",
+                     "programs_seen", "programs_created", "programs_updated",
+                     "programs_unchanged", "programs_rejected", "programs_review_required"):
             setattr(self, name, getattr(self, name) + getattr(other, name))
         self.validation_errors.extend(other.validation_errors)
         self.http_failures.extend(other.http_failures)
@@ -76,7 +96,7 @@ class Counters:
 
     def as_dict(self) -> dict:
         return {k: getattr(self, k) for k in
-                ("seen", "created", "updated", "unchanged", "rejected", "review",
+                ("seen", "created", "updated", "unchanged", "rejected", "review", "conflicted",
                  "skipped", "documents", "documents_unchanged", "fields")}
 
 
@@ -127,7 +147,10 @@ def ensure_source(db: Session, spec) -> Source:
     source.license_notes = spec.license_notes
     source.rate_limit_notes = spec.rate_limit_notes
     source.refresh_interval_hours = spec.refresh_interval_hours
+    schedule = meta.get("refresh_schedule")
     meta.update(source_metadata(spec))
+    if schedule is not None:
+        meta["refresh_schedule"] = schedule
     meta["health"] = health if health is not None else meta.get("health")
     source.metadata_json = meta
     db.flush()
@@ -141,6 +164,7 @@ def source_metadata(spec) -> dict:
         "country_scope": spec.country_scope, "integration_status": spec.integration_status,
         "request_rps": spec.request_rps, "max_workers": spec.max_workers,
         "timeout_seconds": spec.timeout_seconds,
+        "requires_explicit_limit": spec.requires_explicit_limit,
         "fetch_permitted": spec.allowed_use_policy in
         ("permitted_fetch", "licensed_api", "public_dataset"),
         "notes": spec.notes,
@@ -170,25 +194,91 @@ def mark_source_health(db: Session, source: Source, *, ok: bool, error: str | No
 
 def store_document(db: Session, source: Source, doc: SourceDoc, counters: Counters
                    ) -> SourceDocument:
-    """Store (or reuse) the retrieved document. The content hash drives change detection."""
+    """Store one immutable content snapshot and append a retrieval/check event."""
     digest = hashlib.sha256(doc.content).hexdigest() if doc.content else None
+    checked_at = _now()
+    was_checked_now = doc.retrieval_attempt_count > 0
+    latest = db.scalar(select(SourceDocument).where(
+        SourceDocument.source_id == source.id,
+        SourceDocument.canonical_url == doc.canonical,
+    ).order_by(SourceDocument.last_checked_at.desc(), SourceDocument.id.desc()).limit(1))
     if digest:
         existing = db.scalar(select(SourceDocument).where(
             SourceDocument.source_id == source.id,
             SourceDocument.canonical_url == doc.canonical,
             SourceDocument.content_hash == digest))
         if existing is not None:
+            if was_checked_now:
+                existing.last_checked_at = checked_at
+                if latest is not None and latest.content_hash != digest:
+                    existing.last_content_changed_at = checked_at
+            if doc.source_date is not None:
+                existing.source_published_at = doc.source_date
+            if doc.academic_period:
+                existing.academic_period = doc.academic_period
+            if was_checked_now and doc.etag:
+                existing.etag = doc.etag
+            if was_checked_now and doc.last_modified:
+                existing.last_modified = doc.last_modified
+            if was_checked_now:
+                _record_retrieval(db, source, existing, doc, digest)
+                _mark_source_check(source, checked_at, changed=(latest is not None and latest.content_hash != digest))
+            db.flush()
             counters.documents_unchanged += 1
             return existing
     record = SourceDocument(
         source_id=source.id, canonical_url=doc.canonical, title=doc.title,
         document_type=doc.document_type, content_hash=digest,
+        source_published_at=doc.source_date, academic_period=doc.academic_period,
+        retrieved_at=doc.retrieved_at or checked_at,
+        last_checked_at=doc.retrieved_at or checked_at,
+        last_content_changed_at=doc.retrieved_at or checked_at,
         http_status=doc.http_status, fetch_status="fetched", parser_version="ingestion-1",
-        etag=doc.etag, last_modified=doc.last_modified, content_excerpt=_excerpt(doc.content))
+        etag=doc.etag, last_modified=doc.last_modified,
+        content_excerpt=doc.content_excerpt or _excerpt(doc.content))
     db.add(record)
+    db.flush()
+    if was_checked_now:
+        _record_retrieval(db, source, record, doc, digest)
+        _mark_source_check(source, checked_at, changed=(latest is None or latest.content_hash != digest))
     db.flush()
     counters.documents += 1
     return record
+
+
+def _record_retrieval(db: Session, source: Source, document: SourceDocument | None,
+                      doc: SourceDoc, digest: str | None,
+                      *, outcome: str | None = None, error: str | None = None) -> None:
+    outcome = outcome or ("not_modified" if doc.http_status == 304 else "fetched")
+    db.add(SourceDocumentRetrieval(
+        source_id=source.id, source_document_id=document.id if document else None,
+        canonical_url=doc.canonical, outcome=outcome, http_status=doc.http_status,
+        attempt_count=max(1, doc.retrieval_attempt_count), content_hash=digest,
+        etag=doc.etag, last_modified=doc.last_modified,
+        error_summary=(error[:2000] if error else None)))
+
+
+def _mark_source_check(source: Source, checked_at: datetime, *, changed: bool) -> None:
+    meta = dict(source.metadata_json or {})
+    health = dict(meta.get("health") or {})
+    health["last_checked_at"] = checked_at.isoformat()
+    if changed:
+        health["last_content_changed_at"] = checked_at.isoformat()
+    meta["health"] = health
+    source.metadata_json = meta
+
+
+def record_failed_retrieval(db: Session, source: Source, url: str, error: str,
+                            *, http_status: int | None = None, attempt_count: int = 1) -> None:
+    """Persist an external retrieval failure separately from immutable content snapshots."""
+    db.add(SourceDocumentRetrieval(
+        source_id=source.id, canonical_url=url, outcome="failed", http_status=http_status,
+        attempt_count=max(1, attempt_count), error_summary=error[:2000]))
+    meta = dict(source.metadata_json or {})
+    health = dict(meta.get("health") or {})
+    health["last_checked_at"] = _now().isoformat()
+    meta["health"] = health
+    source.metadata_json = meta
 
 
 # ------------------------------------------------------------------ reference
@@ -226,12 +316,16 @@ def ensure_city(db: Session, country_code: str, name: str | None,
                 admin_region: str | None = None, cache: dict | None = None) -> City | None:
     if not name:
         return None
-    slug = slugify(f"{name}-{admin_region}" if admin_region else name)
-    key = (country_code, slug)
+    key = (country_code, name, admin_region)
     if cache is not None and key in cache:
         return cache[key]
-    city = db.scalar(select(City).where(City.country_code == country_code, City.slug == slug))
+    # A slug is not place identity: different Unicode names may normalize to
+    # the same ASCII value. Exact matches also preserve legacy filter slugs.
+    city = db.scalar(select(City).where(City.country_code == country_code,
+        City.name == name[:160], City.admin_region == admin_region).order_by(City.id).limit(1))
     if city is None:
+        slug = _unique_slug(db, City, f"{name}-{admin_region}" if admin_region else name,
+                            max_len=180, country_code=country_code)
         city = City(id=uuid.uuid4(), country_code=country_code, name=name[:160],
                     slug=slug[:180], admin_region=admin_region)
         db.add(city)
@@ -251,10 +345,21 @@ class InstitutionResolver:
     """
 
     def __init__(self, db: Session):
-        self.by_identifier: dict[tuple[str, str], uuid.UUID] = {}
-        self.by_name: dict[tuple[str, str], uuid.UUID] = {}
-        self.by_domain: dict[tuple[str, str], uuid.UUID] = {}
+        self.by_identifier: dict[tuple[str, str, str], set[uuid.UUID]] = defaultdict(set)
+        # Weak hints are sets: a display name or domain can legitimately refer
+        # to more than one canonical institution and must never pick a winner.
+        self.by_name: dict[tuple[str, str], set[uuid.UUID]] = defaultdict(set)
+        self.by_domain: dict[tuple[str, str], set[uuid.UUID]] = defaultdict(set)
         self.objects: dict[uuid.UUID, University] = {}
+        self.approved_links: dict[tuple[uuid.UUID, str], uuid.UUID] = {
+            (source_id, external_key): university_id
+            for source_id, external_key, university_id in db.execute(select(
+                InstitutionIdentityReview.source_id,
+                InstitutionIdentityReview.external_key,
+                InstitutionIdentityReview.resolved_university_id,
+            ).where(InstitutionIdentityReview.status == "approved",
+                    InstitutionIdentityReview.resolved_university_id.is_not(None))).all()
+        }
         rows = db.execute(
             select(University.id, University.canonical_name, University.country_code,
                    University.official_website_url, University.external_identifiers)
@@ -263,63 +368,109 @@ class InstitutionResolver:
             ids = identifiers or {}
             if ids.get("demo_fixture"):
                 continue
-            self.by_name[(country, name_key(name))] = uid
+            self.by_name[(country, name_key(name))].add(uid)
             domain = domain_of(website)
             if domain and country:
-                self.by_domain.setdefault((country, domain), uid)
+                self.by_domain[(country, domain)].add(uid)
             for namespace, value in ids.items():
                 if _is_identity_namespace(namespace) and isinstance(value, str):
-                    self.by_identifier[(namespace, value)] = uid
+                    self.by_identifier[(namespace, _normalize_identifier(value),
+                                        _default_identifier_scope(namespace))].add(uid)
+        claims = db.execute(select(
+            InstitutionIdentifier.university_id, InstitutionIdentifier.namespace,
+            InstitutionIdentifier.normalized_value, InstitutionIdentifier.scope,
+        ).where(InstitutionIdentifier.claim_status == "accepted")).all()
+        for uid, namespace, value, scope in claims:
+            if _is_identity_namespace(namespace):
+                self.by_identifier[(namespace, _normalize_identifier(value), scope)].add(uid)
 
-    def resolve(self, candidate: CandidateInstitution) -> tuple[uuid.UUID | None, str | None]:
+    def resolve(self, candidate: CandidateInstitution,
+                source_id: uuid.UUID | None = None) -> tuple[uuid.UUID | None, str | None]:
         """Resolve a candidate to an existing institution.
 
         Only an unambiguous external identifier is accepted as a match. Name and
         website-domain lookups are reported as suggestions for review, never applied:
         real, distinct universities do share names and domains.
         """
+        matched: set[uuid.UUID] = set()
         for namespace, value in candidate.identifiers.items():
-            if not _is_identity_namespace(namespace):
+            namespace = namespace.strip().lower()
+            if not _is_identity_namespace(namespace) or not isinstance(value, str):
                 continue
-            found = self.by_identifier.get((namespace, value))
-            if found:
-                return found, "external_id"
+            scope = candidate.identifier_scopes.get(namespace, _default_identifier_scope(namespace))
+            found = self.by_identifier.get((namespace, _normalize_identifier(value), scope), set())
+            if len(found) > 1:
+                return None, "ambiguous_identifier"
+            matched.update(found)
+        if len(matched) > 1:
+            return None, "conflicting_identifiers"
+        reviewed = self.approved_links.get((source_id, candidate.external_key)) if source_id else None
+        if reviewed is not None:
+            if matched and reviewed not in matched:
+                return None, "conflicting_identifiers"
+            return reviewed, "reviewed_link"
+        if matched:
+            return next(iter(matched)), "external_id"
         key = (candidate.country_code or "", name_key(candidate.name))
-        if key in self.by_name:
-            return self.by_name[key], "name_country"
+        name_matches = self.by_name.get(key, set())
         domain = domain_of(candidate.website)
-        if domain and (candidate.country_code or "", domain) in self.by_domain:
-            return self.by_domain[(candidate.country_code or "", domain)], "website_domain"
+        domain_matches = (self.by_domain.get((candidate.country_code or "", domain), set())
+                          if domain else set())
+
+        # Name and domain remain review suggestions, never identity proof. If
+        # they disagree, or either hint collides, leave the candidate unselected
+        # rather than handing a reviewer an arbitrary canonical record.
+        if name_matches and domain_matches:
+            overlap = name_matches & domain_matches
+            if len(overlap) == 1:
+                return next(iter(overlap)), "name_domain"
+            return None, "ambiguous_weak_match"
+        matches = name_matches or domain_matches
+        if len(matches) == 1:
+            return next(iter(matches)), "name_country" if name_matches else "website_domain"
+        if len(matches) > 1:
+            return None, "ambiguous_weak_match"
         return None, None
 
     def learn(self, university: University) -> None:
         uid = university.id
         self.objects[uid] = university
         identifiers = university.external_identifiers or {}
-        self.by_name[(university.country_code, name_key(university.canonical_name))] = uid
+        self.by_name[(university.country_code, name_key(university.canonical_name))].add(uid)
         domain = domain_of(university.official_website_url)
         if domain:
-            self.by_domain.setdefault((university.country_code, domain), uid)
+            self.by_domain[(university.country_code, domain)].add(uid)
         for namespace, value in identifiers.items():
             if _is_identity_namespace(namespace) and isinstance(value, str):
-                self.by_identifier[(namespace, value)] = uid
+                self.by_identifier[(namespace, _normalize_identifier(value),
+                                    _default_identifier_scope(namespace))].add(uid)
 
 
 def _is_identity_namespace(namespace: str) -> bool:
     return namespace in IDENTITY_NAMESPACES
 
 
-def _unique_slug(db: Session, model, base: str, **filters) -> str:
+def _normalize_identifier(value: str) -> str:
+    return value.strip().casefold()
+
+
+def _default_identifier_scope(namespace: str) -> str:
+    return "reporting_unit" if namespace in {"ipeds_unitid", "uai", "rio_provider_id"} else "institution"
+
+
+def _unique_slug(db: Session, model, base: str, *, max_len: int = 200, **filters) -> str:
     """Slug that is free both in the database and among rows added this session."""
-    slug = slugify(base, 200)
+    slug = slugify(base, max_len)
     attempt = 1
     while True:
-        candidate = slug if attempt == 1 else f"{slug}-{attempt}"
+        suffix = "" if attempt == 1 else f"-{attempt}"
+        candidate = slug[:max_len-len(suffix)].rstrip("-") + suffix
         query = select(model.id).where(model.slug == candidate)
         for column, value in filters.items():
             query = query.where(getattr(model, column) == value)
         taken_in_db = db.scalar(query) is not None
-        taken_in_session = any(getattr(row, "slug", None) == candidate
+        taken_in_session = any(isinstance(row, model) and row.slug == candidate
+                               and all(getattr(row, column) == value for column, value in filters.items())
                                for row in db.new | db.dirty)
         if not taken_in_db and not taken_in_session:
             return candidate
@@ -328,6 +479,8 @@ def _unique_slug(db: Session, model, base: str, **filters) -> str:
 
 def upsert_institution(db: Session, candidate: CandidateInstitution,
                        resolver: InstitutionResolver, *,
+                       source: Source | None = None,
+                       source_document: SourceDocument | None = None,
                        country_cache: dict | None = None,
                        city_cache: dict | None = None) -> tuple[University, str]:
     """Create or update the university row and merge its external identifiers.
@@ -335,12 +488,14 @@ def upsert_institution(db: Session, candidate: CandidateInstitution,
     Reference rows (country, city) are written before the university, because the
     university carries a foreign key to them.
     """
-    existing_id, match = resolver.resolve(candidate)
+    existing_id, match = resolver.resolve(candidate, source.id if source else None)
+    if match in ("ambiguous_identifier", "conflicting_identifiers"):
+        raise ValueError(f"institution identity refused: {match}")
     # Only a strong external identifier may reuse an existing institution. Two real
     # universities can share a name (or even a website domain) without being the same
     # institution; merging them would fuse unrelated records and let their facts
     # overwrite each other on every run.
-    if existing_id and match != "external_id":
+    if existing_id and match not in ("external_id", "reviewed_link"):
         existing_id, match = None, None
     if existing_id:
         university = resolver.objects.get(existing_id) or db.get(University, existing_id)
@@ -372,21 +527,111 @@ def upsert_institution(db: Session, candidate: CandidateInstitution,
             external_identifiers=dict(candidate.identifiers))
         db.add(university)
         action = "created"
+    if university in db.new:
+        db.flush([university])
+    _persist_identifier_claims(db, university, candidate, source, source_document)
+    if source is not None and not (university.external_identifiers or {}).get("demo_fixture"):
+        review = db.scalar(select(InstitutionReview).where(
+            InstitutionReview.university_id == university.id).with_for_update())
+        if review is None:
+            db.add(InstitutionReview(university_id=university.id, status="pending"))
+            db.flush()
     resolver.learn(university)
     return university, action
 
 
+def _persist_identifier_claims(db: Session, university: University,
+                               candidate: CandidateInstitution, source: Source | None,
+                               document: SourceDocument | None) -> None:
+    source_key = ((source.metadata_json or {}).get("adapter_key") if source else None) or (
+        source.name if source else "unspecified")
+    for namespace, raw_value in candidate.identifiers.items():
+        if not isinstance(raw_value, str) or not raw_value.strip():
+            continue
+        namespace = namespace.strip().lower()
+        normalized = _normalize_identifier(raw_value)
+        scope = candidate.identifier_scopes.get(namespace, _default_identifier_scope(namespace))
+        campus_id = candidate.identifier_campus_ids.get(namespace)
+        claim = db.scalar(select(InstitutionIdentifier).where(
+            InstitutionIdentifier.source_key == source_key,
+            InstitutionIdentifier.namespace == namespace,
+            InstitutionIdentifier.normalized_value == normalized,
+            InstitutionIdentifier.scope == scope,
+            InstitutionIdentifier.university_id == university.id,
+        ))
+        authoritative = namespace in IDENTITY_NAMESPACES
+        owner = db.scalar(select(InstitutionIdentifier).where(
+            InstitutionIdentifier.namespace == namespace,
+            InstitutionIdentifier.normalized_value == normalized,
+            InstitutionIdentifier.scope == scope,
+            InstitutionIdentifier.claim_status == "accepted").limit(1)) if authoritative else None
+        if claim is None and owner is not None:
+            if owner.university_id != university.id:
+                raise ValueError("authoritative institution identifier belongs to another institution")
+            # The uniqueness constraint represents canonical identifier ownership.
+            # A second publisher corroborates that owner through versioned facts;
+            # it must not insert another accepted owner or replace the first source.
+            applicability = hashlib.sha256(f"{source_key}:{namespace}:{normalized}:{scope}".encode()).hexdigest()
+            if not any(f.fact_key == "source_identity_claim" and f.applicability_key == applicability
+                       for f in candidate.facts):
+                candidate.facts.append(CandidateFact(
+                    "source_identity_claim", {"namespace": namespace, "identifier": raw_value.strip(), "scope": scope},
+                    normalized={"namespace": namespace, "identifier": normalized, "scope": scope},
+                    applicability_key=applicability,
+                    excerpt=f"{candidate.name}: {namespace}={raw_value.strip()} ({scope})",
+                    locator=candidate.external_key))
+            continue
+        if claim is None:
+            db.add(InstitutionIdentifier(
+                id=uuid.uuid4(), university_id=university.id,
+                source_id=source.id if source else None,
+                source_document_id=document.id if document else None,
+                source_key=source_key, namespace=namespace,
+                identifier_value=raw_value.strip(), normalized_value=normalized,
+                scope=scope,
+                campus_id=uuid.UUID(campus_id) if campus_id else None,
+                claim_status="accepted" if authoritative else "pending_review"))
+        elif not authoritative and claim.claim_status == "accepted":
+            # Auxiliary registry values (FIPS, EIN, OPEID, etc.) remain traceable
+            # but must not masquerade as authoritative canonical identity claims.
+            claim.claim_status = "pending_review"
+        identifiers = dict(university.external_identifiers or {})
+        if identifiers.get(namespace) != raw_value.strip():
+            identifiers[namespace] = raw_value.strip()
+            university.external_identifiers = identifiers
+    db.flush()
+
+
 def upsert_program(db: Session, university: University, candidate: CandidateProgram,
-                   fields_by_key: dict[str, uuid.UUID]) -> tuple[Program, str]:
-    slug = slugify(candidate.title, 200)
-    existing = db.scalar(select(Program).where(
-        Program.university_id == university.id, Program.slug == slug,
-        Program.degree_level == candidate.degree_level))
-    if existing:
+                   fields_by_key: dict[str, uuid.UUID], *, source: Source,
+                   source_document: SourceDocument) -> tuple[Program, str]:
+    source_key = (source.metadata_json or {}).get("adapter_key") or source.name
+    external_key = candidate.external_key.strip()
+    normalized_key = external_key.casefold()
+    claim = db.scalar(select(ProgramIdentifier).where(
+        ProgramIdentifier.source_key == source_key,
+        ProgramIdentifier.normalized_external_key == normalized_key,
+    ))
+    if claim is not None:
+        if claim.claim_status != "accepted":
+            raise ValueError("program identity claim is not accepted")
+        existing = db.get(Program, claim.program_id)
+        if existing is None or existing.university_id != university.id:
+            raise ValueError("source program identifier conflicts with its institution mapping")
+        if claim.source_document_id != source_document.id:
+            claim.source_document_id = source_document.id
+            return existing, "updated"
         return existing, "unchanged"
-    field_id = None
-    if candidate.discipline_code:
+
+    slug = _unique_slug(db, Program, candidate.title, university_id=university.id)
+    field_id = fields_by_key.get(candidate.discipline_key) if candidate.discipline_key else None
+    if field_id is None and candidate.discipline_code:
         field_id = fields_by_key.get(f"cip_{candidate.discipline_code.split('.')[0]}")
+    if field_id is None and candidate.discipline_name:
+        # Only attach a source label when it exactly matches the controlled
+        # taxonomy after deterministic normalization. Similar labels stay unset
+        # for review rather than being forced into the nearest field.
+        field_id = fields_by_key.get(f"name:{name_key(candidate.discipline_name)}")
     if university in db.new:
         db.flush([university])  # the program carries a foreign key to the university
     program = Program(
@@ -400,6 +645,12 @@ def upsert_program(db: Session, university: University, candidate: CandidateProg
         duration_max_months=candidate.duration_max_months,
         publication_status="candidate")
     db.add(program)
+    db.flush([program])
+    db.add(ProgramIdentifier(
+        program_id=program.id, source_id=source.id, source_document_id=source_document.id,
+        source_key=source_key, external_key=external_key,
+        normalized_external_key=normalized_key, claim_status="accepted"))
+    db.flush()
     return program, "created"
 
 
@@ -477,7 +728,8 @@ _already_recorded = exists(
     .join(FactVersion, FactVersion.id == FactEvidence.fact_version_id)
     .where(FactVersion.fact_record_id == FactRecord.id,
            SourceDocument.source_id == bindparam("source_id"),
-           FactVersion.normalized_value_json == bindparam("normalized"))
+           FactVersion.normalized_value_json == bindparam("normalized"),
+           FactVersion.status != "rejected")
 )
 
 
@@ -584,11 +836,13 @@ def record_fact(db: Session, *, entity_type: str, entity_id: uuid.UUID, source: 
     # on every run, which is neither idempotent nor honest.
     other_source = state.current_source_id is not None and \
         state.current_source_id != source.id
-    if other_source and state.already_recorded:
+    if state.already_recorded and (other_source or state.status == VERIFIED):
         # this source already published this exact value: re-running it changes nothing
         counters.unchanged += 1
         return "unchanged"
     conflicted = state.status == VERIFIED or other_source
+    if conflicted:
+        counters.conflicted += 1
     next_number = state.max_version + 1
     version = _add_version(db, state.record_id, next_number, value, normalized, fact,
                            status="conflicted" if conflicted else fact.status)
@@ -632,7 +886,10 @@ def _create_fact(db: Session, *, entity_type: str, entity_id: uuid.UUID, value: 
                           status=fact.status, extraction_method=fact.extraction_method,
                           extraction_confidence=fact.confidence,
                           effective_from=fact.effective_from,
-                          effective_to=fact.effective_to, created_at=_now())
+                          effective_to=fact.effective_to,
+                          applicable_intake_year=fact.applicable_intake_year,
+                          applicable_intake_term=fact.applicable_intake_term,
+                          created_at=_now())
     direct = pending_records is None
     if direct:
         db.flush()  # the version's FK needs the record to exist first
@@ -679,11 +936,23 @@ def _add_version(db: Session, fact_record_id: uuid.UUID, number: int, value: dic
                           extraction_method=fact.extraction_method,
                           extraction_confidence=fact.confidence,
                           effective_from=fact.effective_from,
-                          effective_to=fact.effective_to, created_at=_now())
+                          effective_to=fact.effective_to,
+                          applicable_intake_year=fact.applicable_intake_year,
+                          applicable_intake_term=fact.applicable_intake_term,
+                          created_at=_now())
     db.add(version)
     return version
 
 
 
 def field_index(db: Session) -> dict[str, uuid.UUID]:
-    return {key: fid for key, fid in db.execute(select(Field.key, Field.id))}
+    rows = db.execute(select(Field.key, Field.display_name, Field.id))
+    index: dict[str, uuid.UUID] = {}
+    by_name: dict[str, set[uuid.UUID]] = defaultdict(set)
+    for key, display_name, field_id in rows:
+        index[key] = field_id
+        by_name[name_key(display_name)].add(field_id)
+    for label, field_ids in by_name.items():
+        if len(field_ids) == 1:
+            index[f"name:{label}"] = next(iter(field_ids))
+    return index

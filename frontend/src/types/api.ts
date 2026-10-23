@@ -131,7 +131,8 @@ export interface UniversityRef {
   name: string
   country_code: string
   recognition_status: string
-  city: string
+  city: string | null
+  official_website_url?: string | null
 }
 
 export interface NearestIntake {
@@ -146,17 +147,32 @@ export interface ProgramSummary {
   name: string
   slug: string
   degree_level: string
-  field: FieldRef
+  field: FieldRef | null
   country_code: string
-  duration_min_months: number
-  duration_max_months: number
-  duration_months: number
-  language: string
-  study_mode: string
+  duration_min_months: number | null
+  duration_max_months: number | null
+  duration_months: number | null
+  language: string | null
+  study_mode: string | null
   university: UniversityRef
   nearest_intake: NearestIntake | null
   tuition_summary: MoneyCell
   data_quality: DataQuality
+  source_verification?: {
+    official_program_page_status: 'verified' | 'candidate' | 'unavailable' | 'demo_fixture'
+    program_identity_status: 'accepted' | 'unavailable' | 'demo_fixture'
+    official_program_url: string | null
+    verified_at: string | null
+    source: { source_name: string; source_url: string; retrieved_at: string; source_document_id: string } | null
+    reason: string | null
+  }
+  academic_completeness?: {
+    status: 'limited' | 'partial' | 'complete'
+    fields: Record<string, 'verified' | 'unverified' | 'unavailable'>
+    verified_count: number
+    field_count: number
+    warnings: string[]
+  }
 }
 
 export interface ProgramFee {
@@ -204,11 +220,23 @@ export interface ProgramIntake {
 
 export interface ProgramDetail extends ProgramSummary {
   description: string | null
+  description_source?: {
+    source_name: string
+    source_url: string
+    attribution: string
+    retrieved_at: string
+    verified_at: string | null
+    fact_id: string
+    version_id: string
+  } | null
   official_program_url: string | null
+  official_registry_reference?: { status: string; url: string | null; reason: string }
+  official_program_url_status?: 'verified' | 'unverified_candidate' | 'general_catalogue' |
+    'dataset_record' | 'source_api' | 'identifier_resolver' | 'government_program_record' | 'unavailable' | 'demo_fixture'
   intakes: ProgramIntake[]
   fees: ProgramFee[]
   requirements: ProgramRequirement[]
-  campus: { id: string | null; name: string | null; city: string | null }
+  campus: { id: string | null; name: string | null; city: string | null } | null
 }
 
 export interface EvidenceVersion {
@@ -227,6 +255,9 @@ export interface EvidenceSource {
   url: string | null
   retrieved_at: string | null
   excerpt: string | null
+  locator?: string | null
+  http_status?: number | null
+  fetch_status?: string | null
   supports_or_conflicts: string
 }
 
@@ -349,13 +380,15 @@ export interface ExplanationsResponse {
 // ---------------------------------------------------------------- comparison
 
 export interface CompareItem {
+  source_verification?: ProgramSummary['source_verification']
+  academic_completeness?: ProgramSummary['academic_completeness']
   program_id: string
   name: string
   university: string
   country_code: string
   degree_level: string
-  duration_months: number
-  language: string
+  duration_months: number | null
+  language: string | null
   tuition: MoneyCell
   nearest_deadline: string | null
   requirements_total: number
@@ -653,6 +686,8 @@ export interface ReviewQueueItem {
   current_status: string
   current_version_id: string | null
   current_value: unknown
+  display_value?: { summary: string; fields: { label: string; value: string }[] }
+  entity_context?: FactEntityContext | null
   version_count: number
   evidence_count: number
   last_review: {
@@ -661,6 +696,21 @@ export interface ReviewQueueItem {
     reviewer_user_id: string
     created_at: string
   } | null
+}
+
+export type FactEntityContext = {
+  type: 'university' | 'program'
+  id: string
+  name: string
+  country_code?: string
+  official_website_url?: string | null
+  official_program_url?: string | null
+  publication_status?: string
+  degree_level?: string
+  is_demo?: boolean
+  external_identifiers?: Record<string, unknown>
+  source_identifiers?: { source_key: string; external_key: string; claim_status: string }[]
+  university?: { id: string; name: string; country_code: string; official_website_url: string | null } | null
 }
 
 export interface FactEvidenceDetail {
@@ -685,6 +735,7 @@ export interface FactVersionDetail {
   id: string
   version_number: number
   value: unknown
+  display_value?: { summary: string; fields: { label: string; value: string }[] }
   normalized_value: unknown
   status: string
   effective_from: string | null
@@ -706,6 +757,7 @@ export interface FactDetail {
   entity_type: string
   entity_id: string
   entity_label: string | null
+  entity_context?: FactEntityContext | null
   fact_key: string
   applicability_key: string
   current_status: string
@@ -749,6 +801,14 @@ export interface Source {
   updated_at: string | null
   document_count?: number
   job_count?: number
+  last_checked_at?: string | null
+  last_success_at?: string | null
+  last_content_changed_at?: string | null
+  next_refresh_at?: string | null
+  scheduling?: { enabled: boolean; approved: boolean; state: string; max_records: number | null }
+  freshness_status?: 'current' | 'stale' | 'manual' | 'unknown'
+  latest_academic_period?: string | null
+  latest_source_published_at?: string | null
 }
 
 export interface SourceDetail extends Source {
@@ -760,6 +820,19 @@ export interface SourceDetail extends Source {
     fetch_status: string | null
     http_status: number | null
     retrieved_at: string | null
+    last_checked_at: string | null
+    last_content_changed_at: string | null
+    source_published_at: string | null
+    academic_period: string | null
+    content_hash: string | null
+  }[]
+  retrieval_attempts: {
+    canonical_url: string
+    attempted_at: string
+    outcome: string
+    http_status: number | null
+    attempt_count: number
+    error_summary: string | null
   }[]
   recent_jobs: Job[]
 }
@@ -775,6 +848,24 @@ export interface Job {
   records_created: number
   records_updated: number
   records_rejected: number
+  records_unchanged: number
+  records_review_required: number
+  checkpoint: Record<string, unknown> | null
+  metrics: {
+    version: number
+    quality?: 'legacy_partial' | 'legacy_aggregate'
+    institutions: Record<string, number> | null
+    programs?: Record<string, number> | null
+    entities?: Record<string, number> | null
+    facts: Record<string, number> | null
+    documents?: Record<string, number> | null
+    rejected: number
+    conflicted: number | null
+    needs_review: number
+    skipped: number | null
+    fields_created?: number
+    semantics?: Record<string, string | boolean>
+  }
   error_summary: string | null
   worker_version: string | null
   created_by_user_id: string | null

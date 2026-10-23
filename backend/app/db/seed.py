@@ -8,15 +8,16 @@ IMPORTANT — honesty rules for this file:
   ``verified``. Nothing here may be shown to a user as an official verified fact.
 * Official rule resources link to genuine official pages but state no invented values.
 
-Run: ``python -m app.db.seed`` (safe to re-run; existing rows are left untouched).
+Run explicitly with ``SEED_TARGET=development python -m app.db.seed`` (existing rows are left untouched).
 """
 from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+import os
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 from app.core.security import hash_password
@@ -557,8 +558,19 @@ def run_seed(session: Session) -> dict[str, int]:
 
 
 if __name__ == "__main__":
-    from app.db.session import SessionLocal
+    from app.db.safety import verify_development_target, verify_test_target
 
-    with SessionLocal() as s:
+    seed_target = os.environ.get("SEED_TARGET")
+    if seed_target == "test":
+        if not settings.unishortlist_test_mode:
+            raise RuntimeError("Refusing seed: test target requires UNISHORTLIST_TEST_MODE=1.")
+        verify_test_target(settings.database_url)
+    elif seed_target == "development" and not settings.is_production:
+        verify_development_target(settings.database_url)
+    else:
+        raise RuntimeError("Refusing seed: set SEED_TARGET=development or test explicitly.")
+    engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+    seed_session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    with seed_session() as s:
         print("Seed complete:", run_seed(s))
 

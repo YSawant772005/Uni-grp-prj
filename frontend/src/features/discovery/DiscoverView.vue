@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, nextTick, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { catalog } from '../../services/api/catalog'
 import { useAsync } from '../../composables/useAsync'
@@ -31,24 +31,40 @@ const SORT_OPTIONS = [
 ]
 const PAGE_SIZE = 12
 
+function queryText(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function queryPage(value: unknown): number {
+  if (typeof value !== 'string') return 1
+  const page = Number(value)
+  return Number.isSafeInteger(page) && page > 0 ? page : 1
+}
+
+function querySort(value: unknown): 'name' | 'deadline' | 'tuition' | 'country' {
+  return value === 'deadline' || value === 'tuition' || value === 'country' ? value : 'name'
+}
+
+function queryOrder(value: unknown): 'asc' | 'desc' {
+  return value === 'desc' ? 'desc' : 'asc'
+}
+
 // ------------------------------------------------------- shareable filter state
 
 const filters = reactive({
-  q: typeof route.query.q === 'string' ? route.query.q : '',
-  country: typeof route.query.country === 'string' ? route.query.country : '',
-  field: typeof route.query.field === 'string' ? route.query.field : '',
-  degree_level: typeof route.query.degree_level === 'string' ? route.query.degree_level : '',
-  language: typeof route.query.language === 'string' ? route.query.language : '',
-  sort: (typeof route.query.sort === 'string' ? route.query.sort : 'name') as
-    | 'name'
-    | 'deadline'
-    | 'tuition'
-    | 'country',
-  order: (typeof route.query.order === 'string' ? route.query.order : 'asc') as 'asc' | 'desc',
-  page: Number(route.query.page) || 1,
+  q: queryText(route.query.q),
+  country: queryText(route.query.country),
+  field: queryText(route.query.field),
+  degree_level: queryText(route.query.degree_level),
+  language: queryText(route.query.language),
+  sort: querySort(route.query.sort),
+  order: queryOrder(route.query.order),
+  page: queryPage(route.query.page),
 })
 
 const debouncedQuery = useDebouncedValue(computed(() => filters.q), 350)
+let applyingRouteQuery = false
+let userQueryPending = false
 
 const countriesState = useAsync(() => catalog.countries(), { immediate: true })
 const countryOptions = computed(() => countriesState.data.value?.items ?? [])
@@ -73,6 +89,13 @@ const hasFilters = computed(
   () => Boolean(filters.q || filters.country || filters.field || filters.degree_level || filters.language),
 )
 
+watch(debouncedQuery, () => {
+  if (userQueryPending) {
+    userQueryPending = false
+    filters.page = 1
+  }
+})
+
 // keep the URL in sync so results are shareable (UI doc section 5)
 function syncUrl() {
   void router.replace({
@@ -92,7 +115,7 @@ function syncUrl() {
 watch(
   [() => filters.country, () => filters.field, () => filters.degree_level, () => filters.language, () => filters.sort, () => filters.order],
   () => {
-    filters.page = 1
+    if (!applyingRouteQuery) filters.page = 1
   },
 )
 
@@ -100,6 +123,25 @@ watch([debouncedQuery, () => filters.country, () => filters.field, () => filters
   syncUrl()
   void results.run()
 })
+
+// Keep filter state aligned with browser back/forward navigation. The request
+// watcher above remains the single fetch path for URL and control changes.
+watch(
+  () => route.query,
+  (query) => {
+    applyingRouteQuery = true
+    userQueryPending = false
+    filters.q = queryText(query.q)
+    filters.country = queryText(query.country)
+    filters.field = queryText(query.field)
+    filters.degree_level = queryText(query.degree_level)
+    filters.language = queryText(query.language)
+    filters.sort = querySort(query.sort)
+    filters.order = queryOrder(query.order)
+    filters.page = queryPage(query.page)
+    void nextTick(() => { applyingRouteQuery = false })
+  },
+)
 
 function clearFilters() {
   filters.q = ''
@@ -112,7 +154,6 @@ function clearFilters() {
 
 function setPage(page: number) {
   filters.page = page
-  void results.run()
   window.scrollTo({ top: 0 })
 }
 
@@ -120,6 +161,7 @@ function setPage(page: number) {
 const searchInput = computed({
   get: () => filters.q,
   set: (value: string) => {
+    if (value !== filters.q) userQueryPending = true
     filters.q = value
   },
 })

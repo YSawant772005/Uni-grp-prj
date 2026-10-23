@@ -11,7 +11,7 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy.orm import Session
 
-from app.models import AdmissionRequirement, EligibilityStatus, EvalStatus, StudentProfile
+from app.models import AdmissionRequirement, EligibilityStatus, EvalStatus, FactRecord, Program, StudentProfile, University
 
 
 def _parse_scale(value) -> Decimal | None:
@@ -108,9 +108,11 @@ def _generic_result(req: AdmissionRequirement, profile: StudentProfile) -> tuple
             f"No automated rule for requirement type '{req.requirement_type}'; needs review.")
 
 
-def evaluate_requirement(req: AdmissionRequirement, profile: StudentProfile) -> dict:
+def evaluate_requirement(req: AdmissionRequirement, profile: StudentProfile, evidence_status=None) -> dict:
     rtype = req.requirement_type
-    if rtype == "grade":
+    if evidence_status is not None and evidence_status != "verified":
+        status, value, expl = EvalStatus.unknown.value, None, f"Requirement evidence is {evidence_status}; a reviewer must verify it before evaluation."
+    elif rtype == "grade":
         status, value, expl = _grade_result(req, profile)
     elif rtype == "language_test":
         status, value, expl = _language_result(req, profile)
@@ -140,7 +142,7 @@ def evaluate_requirement(req: AdmissionRequirement, profile: StudentProfile) -> 
 
 def _combine_group(results: list[dict], operator: str) -> str:
     statuses = [r["status"] for r in results]
-    if operator == "ANY":
+    if operator in ("ANY", "OR"):
         if EvalStatus.pass_.value in statuses:
             return EvalStatus.pass_.value
         if EvalStatus.fail.value in statuses and EvalStatus.conditional.value not in statuses \
@@ -171,9 +173,11 @@ def _overall(group_statuses: list[str]) -> str:
     return EligibilityStatus.eligible.value
 
 
-def evaluate_program(profile: StudentProfile, requirements: list[AdmissionRequirement]) -> dict:
+def evaluate_program(profile: StudentProfile, requirements: list[AdmissionRequirement], *, fact_statuses=None) -> dict:
     """Evaluate one program's requirements against a profile. Pure given loaded rows."""
-    req_results = [evaluate_requirement(r, profile) for r in requirements]
+    req_results = [evaluate_requirement(r, profile,
+                   fact_statuses.get(r.source_fact_id, "unavailable") if fact_statuses is not None else None)
+                   for r in requirements]
     groups: dict[str, list[dict]] = {}
     for r in req_results:
         groups.setdefault(r["group_key"] or "default", []).append(r)
@@ -182,8 +186,10 @@ def evaluate_program(profile: StudentProfile, requirements: list[AdmissionRequir
     for key, members in groups.items():
         operator = next((r.group_operator for r in requirements
                          if (r.group_key or "default") == key), "AND")
-        status = _combine_group(members, operator)
-        group_statuses.append(status)
+        mandatory = [m for m in members if m["is_mandatory"]]
+        status = _combine_group(mandatory or members, operator)
+        if mandatory:
+            group_statuses.append(status)
         group_out.append({"group_key": key, "group_operator": operator, "status": status,
                           "requirement_keys": [m["requirement_key"] for m in members]})
 
@@ -203,3 +209,15 @@ def load_requirements(db: Session, program_id) -> list[AdmissionRequirement]:
     return list(db.query(AdmissionRequirement)
                 .filter(AdmissionRequirement.program_id == program_id)
                 .order_by(AdmissionRequirement.group_key, AdmissionRequirement.id).all())
+
+
+def evaluate_for_program(db: Session, profile: StudentProfile, program_id) -> dict:
+    requirements = load_requirements(db, program_id)
+    program = db.get(Program, program_id)
+    university = db.get(University, program.university_id) if program else None
+    if university and (university.external_identifiers or {}).get("demo_fixture"):
+        return evaluate_program(profile, requirements)
+    from sqlalchemy import select
+    statuses = dict(db.execute(select(FactRecord.id, FactRecord.current_status).where(
+        FactRecord.id.in_([r.source_fact_id for r in requirements if r.source_fact_id]))).all())
+    return evaluate_program(profile, requirements, fact_statuses=statuses)

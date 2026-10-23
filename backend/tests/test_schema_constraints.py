@@ -58,18 +58,17 @@ class TestForeignKeys:
 
 
 class TestUniqueness:
-    def test_program_identity_unique(self, db):
+    def test_similar_program_titles_are_not_database_identity(self, db):
         program = _first_program(db)
-        db.add(
-            Program(
-                university_id=program.university_id, country_code=program.country_code,
-                canonical_name=program.canonical_name, slug=program.slug,
-                degree_level=program.degree_level,
-            )
+        second = Program(
+            university_id=program.university_id, country_code=program.country_code,
+            canonical_name=program.canonical_name, slug=program.slug,
+            degree_level=program.degree_level,
+            official_program_url="https://different.example.edu/program",
         )
-        with pytest.raises(IntegrityError):
-            db.flush()
-        db.rollback()
+        db.add(second)
+        db.flush()
+        assert second.id != program.id
 
     def test_user_email_unique(self, db, make_user):
         make_user(email="dup@test.local")

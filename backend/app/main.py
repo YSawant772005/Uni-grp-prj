@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -12,6 +13,7 @@ from slowapi.errors import RateLimitExceeded  # noqa: F401  (registered handler 
 from app.core.config import settings
 from app.core.errors import new_request_id, register_error_handlers
 from app.core.scheduler import start_scheduler
+from app.db.safety import verify_runtime_target
 from app.routers.v1.auth import limiter
 from app.routers.v1.router import api_router
 
@@ -23,6 +25,7 @@ logging.basicConfig(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    verify_runtime_target()
     scheduler = start_scheduler()  # None unless ENABLE_SCHEDULER=true
     yield
     if scheduler is not None:
@@ -52,6 +55,10 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def request_context(request: Request, call_next):
         rid = request.headers.get("X-Request-Id") or new_request_id()
+        try:
+            uuid.UUID(rid)
+        except ValueError:
+            rid = new_request_id()
         request.state.request_id = rid
         started = time.perf_counter()
         response = await call_next(request)

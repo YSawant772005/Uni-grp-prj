@@ -1,0 +1,36 @@
+# Disposable recovery PostgreSQL. No shared volume, network, or port with dev.
+services:
+  recovery-migrate:
+    build: ./backend
+    profiles: [recovery]
+    environment:
+      DATABASE_URL: postgresql+psycopg://uni_shortlist_recovery:${RECOVERY_DB_PASSWORD:?Set RECOVERY_DB_PASSWORD in the environment}@db-recovery:5432/uni_shortlist_recovery
+      MIGRATION_TARGET: recovery
+      ENVIRONMENT: local
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db-recovery:
+        condition: service_healthy
+    networks: [recovery_isolated]
+
+  db-recovery:
+    image: postgres:16-alpine
+    profiles: [recovery]
+    environment:
+      POSTGRES_DB: uni_shortlist_recovery
+      POSTGRES_USER: uni_shortlist_recovery
+      POSTGRES_PASSWORD: ${RECOVERY_DB_PASSWORD:?Set RECOVERY_DB_PASSWORD in the environment}
+    volumes:
+      - ./backend/db/recovery-instance-init.sql:/docker-entrypoint-initdb.d/10-recovery-marker.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks: [recovery_isolated]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uni_shortlist_recovery -d uni_shortlist_recovery"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+networks:
+  recovery_isolated:
+    internal: true

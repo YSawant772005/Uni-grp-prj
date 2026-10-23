@@ -20,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -219,6 +220,132 @@ class AuditEvent(Base, UUIDPk):
     reason: Mapped[str | None] = mapped_column(Text)
     before_summary: Mapped[dict | None] = mapped_column(JSONB)
     after_summary: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class InstitutionIdentityReview(Base, UUIDPk, TimestampMixin):
+    """A source candidate whose institutional identity needs a human decision."""
+
+    __tablename__ = "institution_identity_reviews"
+    __mapper_args__ = {"eager_defaults": False}
+    __table_args__ = (
+        Index("uq_institution_identity_review_active_source_key", "source_id", "external_key",
+              unique=True, postgresql_where=text("archived_operation_id IS NULL")),
+        CheckConstraint("archived_operation_id IS NULL OR (suggested_university_id IS NULL AND resolved_university_id IS NULL)",
+                        name="ck_identity_review_archived_links"),
+        CheckConstraint("status IN ('pending', 'approved', 'rejected', 'deferred')",
+                        name="ck_institution_identity_reviews_status"),
+        Index("ix_institution_identity_reviews_status", "status", "created_at"),
+    )
+
+    archived_operation_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("catalogue_reset_operations.id", ondelete="RESTRICT"),
+        nullable=True, deferred=True, server_default=text("NULL"))
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_document_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("source_documents.id", ondelete="RESTRICT"), nullable=False
+    )
+    external_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    candidate_payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    suggested_university_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("universities.id", ondelete="SET NULL")
+    )
+    resolved_university_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("universities.id", ondelete="SET NULL")
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False, server_default="pending")
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class InstitutionIdentityReviewEvent(Base, UUIDPk):
+    """Append-only record of a reviewer decision for institution identity."""
+
+    __tablename__ = "institution_identity_review_events"
+    __table_args__ = (
+        CheckConstraint("action IN ('approve_link', 'reject', 'defer')",
+                        name="ck_institution_identity_review_events_action"),
+        CheckConstraint("length(btrim(reason)) > 0", name="ck_institution_identity_review_events_reason"),
+        Index("ix_institution_identity_review_events_review", "review_id", "created_at"),
+    )
+
+    review_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("institution_identity_reviews.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    before_summary: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    after_summary: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class InstitutionReview(Base, UUIDPk, TimestampMixin):
+    """Human review state for one canonical institution, separate from source links."""
+
+    __tablename__ = "institution_reviews"
+    __mapper_args__ = {"eager_defaults": False}
+    __table_args__ = (
+        UniqueConstraint("university_id", name="uq_institution_reviews_university"),
+        CheckConstraint("(university_id IS NOT NULL AND archived_operation_id IS NULL) OR "
+                        "(university_id IS NULL AND archived_operation_id IS NOT NULL)",
+                        name="ck_institution_review_active_or_archived"),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'deferred', 'needs_evidence')",
+            name="ck_institution_reviews_status",
+        ),
+        Index("ix_institution_reviews_status", "status", "created_at"),
+    )
+
+    archived_operation_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("catalogue_reset_operations.id", ondelete="RESTRICT"),
+        nullable=True, deferred=True, server_default=text("NULL"))
+    university_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("universities.id", ondelete="RESTRICT"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(24), nullable=False, server_default="pending")
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class InstitutionReviewEvent(Base, UUIDPk):
+    """Append-only audit trail for canonical institution review decisions."""
+
+    __tablename__ = "institution_review_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('approve', 'reject', 'defer', 'needs_evidence')",
+            name="ck_institution_review_events_action",
+        ),
+        CheckConstraint("length(btrim(reason)) > 0", name="ck_institution_review_events_reason"),
+        Index("ix_institution_review_events_review", "review_id", "created_at"),
+    )
+
+    review_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("institution_reviews.id", ondelete="RESTRICT"), nullable=False
+    )
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    before_summary: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    after_summary: Mapped[dict] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

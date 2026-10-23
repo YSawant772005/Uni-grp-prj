@@ -8,7 +8,10 @@ import pytest
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.db.seed import run_seed
-from app.models import CostScenario, LoanScenario, Program, RoiScenario
+from app.models import (
+    CostScenario, InstitutionReview, LoanScenario, Program, ProgramOutcomeEvidence,
+    RoiScenario, University,
+)
 from conftest import _truncate_all
 
 ONBOARDING = {
@@ -37,7 +40,6 @@ def generous_rate_limit():
 
 @pytest.fixture(scope="module")
 def _seeded():
-    assert "_test" in settings.database_url, "tests require a *_test database"
     session = SessionLocal()
     _truncate_all(session)
     run_seed(session)
@@ -370,3 +372,20 @@ class TestDestinationsAndOutcomes:
         assert listing["page"] == 1 and listing["total_pages"] >= 1
         empty = client.get(f"/api/v1/outcomes?program_id={uuid.uuid4()}").json()
         assert empty["total_items"] == 0 and empty["items"] == []
+
+    def test_program_outcomes_follow_institution_publication_visibility(self, db, client):
+        program = _programs(db)[0]
+        university = db.get(University, program.university_id)
+        university.external_identifiers = {}
+        db.add(InstitutionReview(university_id=university.id, status="pending"))
+        db.add(ProgramOutcomeEvidence(
+            program_id=program.id, metric_key="employment_rate", metric_value=82,
+            metric_unit="percent", population_scope="program",
+        ))
+        db.flush()
+
+        client.cookies.clear()
+        listing = client.get(f"/api/v1/outcomes?program_id={program.id}")
+        assert listing.status_code == 200
+        assert listing.json()["total_items"] == 0
+        assert listing.json()["items"] == []

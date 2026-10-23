@@ -6,6 +6,7 @@ supplied or ``None``. A missing value never becomes 0/""/"unknown value".
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit, urlunsplit
@@ -18,10 +19,9 @@ TRACKING_PARAMS = {"utm_source", "utm_medium", "utm_campaign", "utm_term",
                    "utm_content", "gclid", "fbclid", "_ga"}
 
 _DEGREE_PATTERNS = [
-    (r"\bmaster|msc|m\.?sc\b|mba|ma\b|ms\b|m\.?s\b|mas\b|mmgt|meng|mres", "masters"),
+    (r"\b(?:masters?|msc|m\.?sc|mba|ma|ms|m\.?s|mas|mmgt|meng|mres)\b", "masters"),
     (r"\bdoctor|phd|ph\.d\b|dphil|dba|m\.?ph\b", "phd"),
     (r"\bbachelor|bsc|b\.?sc\b|ba\b|bs\b|b\.?s\b|llb|be\b", "bachelors"),
-    (r"\bpostgrad|post-graduate|pgcert|post-master", "masters"),
 ]
 
 
@@ -31,6 +31,25 @@ def clean_text(value: object) -> str | None:
         return None
     text = re.sub(r"\s+", " ", str(value)).strip()
     return None if text.lower() in MISSING_TOKENS else text
+
+
+def program_title_matches(expected: str, observed: str) -> bool:
+    """Conservative title words, including UAL's explicit Spanish ELE abbreviation.
+
+    No translation or approximate subject similarity is inferred. A bilingual
+    page must actually supply a matching title in either language.
+    """
+    def terms(value):
+        text = ''.join(c for c in unicodedata.normalize('NFKD', value.casefold())
+                       if not unicodedata.combining(c))
+        text = re.sub(r'\bele\b', 'espanol lengua extranjera', text)
+        ignored = {'master', 'masters', 'universitario', 'universitaria', 'en', 'de', 'del',
+                   'la', 'las', 'el', 'los', 'y', 'para', 'como', 'sobre', 'of', 'in', 'the',
+                   'degree', 'universidad', 'university', 'almeria'}
+        return {word[:-1] if word.endswith('s') else word
+                for word in re.findall(r'[a-z0-9]+', text) if len(word) > 2 and word not in ignored}
+    wanted, actual = terms(expected), terms(observed)
+    return bool(wanted) and wanted <= actual
 
 
 def ipeds_value(raw: object) -> str | None:

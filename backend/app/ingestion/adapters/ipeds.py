@@ -26,9 +26,11 @@ programmes — that source is registered with integration status
 from __future__ import annotations
 
 import csv
+import os
 import re
 import zipfile
 from decimal import Decimal, InvalidOperation
+from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Iterator
@@ -56,7 +58,25 @@ from app.ingestion.types import (
 
 DATA_BASE = "https://nces.ed.gov/ipeds/datacenter/data/"
 CIP_INDEX_URL = "https://nces.ed.gov/ipeds/cipcode/"
-ACADEMIC_PERIOD = "2023-24"
+SUPPORTED_HD_RELEASE_YEARS = frozenset({2024})
+SUPPORTED_IC_RELEASE_YEARS = frozenset({2023})
+
+
+def _validate_release_year(value: str | int, *, source: str) -> None:
+    supported = SUPPORTED_HD_RELEASE_YEARS if source == "HD" else SUPPORTED_IC_RELEASE_YEARS
+    if not str(value).isdigit() or int(value) not in supported:
+        years = ", ".join(map(str, sorted(supported)))
+        raise ValueError(f"IPEDS_{source}_RELEASE_YEAR must select a dictionary-verified release ({years}).")
+
+
+def _configured_release_year(source: str, default: int) -> int:
+    raw = os.environ.get(f"IPEDS_{source}_RELEASE_YEAR", str(default)).strip()
+    _validate_release_year(raw, source=source)
+    return int(raw)
+
+
+IPEDS_HD_RELEASE_YEAR = _configured_release_year("HD", 2024)
+IPEDS_IC_RELEASE_YEAR = _configured_release_year("IC", 2023)
 
 CONTROL_TYPES = {"1": "public", "2": "non_profit", "3": "for_profit"}
 SECTOR_TYPES = {"1": "public", "2": "non_profit", "3": "for_profit", "4": "public",
@@ -97,12 +117,15 @@ class _ZipCsvAdapter(SourceAdapter):
     file_name = ""
     csv_name = ""
     chunk_size = 500
+    required_columns: tuple[str, ...] = ()
+    reporting_year = ""
+    academic_period: str | None = None
 
     def iter_batches(self, ctx: RunContext) -> Iterator[AdapterBatch]:
         doc, path = self.fetch_csv(ctx)
         count = 0
         buffer: list[CandidateInstitution] = []
-        for row in _read_csv(path):
+        for row in _read_csv(path, required_columns=self.required_columns):
             candidate = self.to_candidate(row)
             if candidate is None:
                 continue
@@ -123,11 +146,17 @@ class _ZipCsvAdapter(SourceAdapter):
         url = DATA_BASE + self.file_name
         target = cache.cache_path(ctx, self.file_name)
         meta = cache.read_meta(ctx, self.file_name)
-        if ctx.offline and target.exists():
+        retrieval_attempts = 0
+        http_status = 200
+        if ctx.offline:
+            if not target.exists():
+                raise ValueError(f"Offline IPEDS cache is missing: {self.file_name}.")
             payload = target.read_bytes()
         else:
             result = ctx.fetcher.get(url, etag=meta.get("etag"),
                                      last_modified=meta.get("last_modified"))
+            retrieval_attempts = getattr(result, "attempts", 1)
+            http_status = result.status
             if result.not_modified and target.exists():
                 payload = target.read_bytes()
             else:
@@ -136,19 +165,46 @@ class _ZipCsvAdapter(SourceAdapter):
                 cache.write_meta(ctx, self.file_name,
                                  {"etag": result.etag, "last_modified": result.last_modified})
             meta = {"etag": result.etag, "last_modified": result.last_modified}
+        cached_retrieved_at = None
+        if ctx.offline:
+            raw_retrieved_at = meta.get("retrieved_at")
+            if raw_retrieved_at:
+                try:
+                    cached_retrieved_at = datetime.fromisoformat(raw_retrieved_at)
+                except (TypeError, ValueError):
+                    cached_retrieved_at = None
+            if cached_retrieved_at is None:
+                raise ValueError(
+                    f"Cached {self.file_name} has no valid retrieval timestamp; "
+                    "refusing to represent offline parsing as fresh evidence.")
         return (SourceDoc(url=url, title=self.file_name, document_type="zip", content=payload,
-                          http_status=200, etag=meta.get("etag"),
+                          http_status=http_status, etag=meta.get("etag"),
                           last_modified=meta.get("last_modified"),
-                          academic_period=ACADEMIC_PERIOD),
+                          academic_period=self.academic_period or
+                          f"IPEDS reporting year {self.reporting_year}",
+                          retrieved_at=cached_retrieved_at,
+                          retrieval_attempt_count=retrieval_attempts),
                 _extract_member(target, self.csv_name))
 
 
 class IpedsDirectoryAdapter(_ZipCsvAdapter):
-    """HD2023 — official institution directory for the United States."""
+    """Configurable official IPEDS HD directory release for the United States."""
 
     source_key = "ipeds_hd"
-    file_name = "HD2023.zip"
-    csv_name = "HD2023.csv"
+    # Required fields are checked against HD2024_dict.xlsx. A future release
+    # must be dictionary-reviewed before it can be added to the allowlist.
+    required_columns = (
+        "UNITID", "INSTNM", "IALIAS", "ADDR", "CITY", "STABBR", "ZIP",
+        "WEBADDR", "CONTROL", "SECTOR", "GROFFER", "HLOFFER", "C21BASIC",
+        "CARNEGIESIZE", "LOCALE", "LATITUDE", "LONGITUD", "LANDGRNT", "HBCU",
+        "TRIBAL",
+    )
+
+    def __init__(self, release_year: int | None = None):
+        self.reporting_year = str(IPEDS_HD_RELEASE_YEAR if release_year is None else release_year)
+        _validate_release_year(self.reporting_year, source="HD")
+        self.file_name = f"HD{self.reporting_year}.zip"
+        self.csv_name = f"HD{self.reporting_year}.csv"
 
     def to_candidate(self, row: dict) -> CandidateInstitution | None:
         unitid = ipeds_value(row.get("UNITID"))
@@ -169,6 +225,7 @@ class IpedsDirectoryAdapter(_ZipCsvAdapter):
             name=name,
             aliases=normalize_aliases([row.get("IALIAS")]),
             identifiers=identifiers,
+            identifier_scopes={"ipeds_unitid": "reporting_unit"},
             country_code="US",
             country_name="United States",
             region="North America",
@@ -180,21 +237,22 @@ class IpedsDirectoryAdapter(_ZipCsvAdapter):
             website=normalize_url(row.get("WEBADDR")),
             institution_type=CONTROL_TYPES.get(ipeds_value(row.get("CONTROL")) or ""),
         )
-        locator = f"HD2023.csv: UNITID={unitid}"
+        locator = f"HD{self.reporting_year}.csv: UNITID={unitid}"
         control = ipeds_value(row.get("CONTROL"))
         sector = ipeds_value(row.get("SECTOR"))
         offerings = {label: ipeds_value(row.get(col)) == "1"
                      for col, label in OFFERINGS.items()
                      if ipeds_value(row.get(col)) is not None}
         candidate.facts = [
-            CandidateFact("official_name", {"name": name},
-                          normalized={"name": name_key(name)}, locator=locator, confidence=1.0),
+            CandidateFact("official_name", {"name": name,
+                                             "ipeds_reporting_year": self.reporting_year},
+                          normalized={"name": name_key(name)}, excerpt=name, locator=locator, confidence=1.0),
             CandidateFact("aliases", {"aliases": candidate.aliases},
                           normalized={"aliases": sorted(name_key(a) for a in candidate.aliases)},
                           locator=locator),
             CandidateFact("official_website_url", {"url": candidate.website},
                           normalized={"url": domain_of(candidate.website)
-                                      or candidate.website}, locator=locator),
+                                      or candidate.website}, excerpt=candidate.website, locator=locator),
             CandidateFact("location", {
                 "address": address, "city": city, "admin_region": candidate.admin_region,
                 "country_code": "US",
@@ -207,26 +265,35 @@ class IpedsDirectoryAdapter(_ZipCsvAdapter):
             CandidateFact("classification", {
                 "sector": sector, "sector_type": SECTOR_TYPES.get(sector or ""),
                 "carnegie_basic_2021": ipeds_value(row.get("C21BASIC")),
-                "carnegie_size_2021": ipeds_value(row.get("C21SZSET")),
-                "carnegie_basic_2018": ipeds_value(row.get("C18BASIC")),
-                "carnegie_basic_2015": ipeds_value(row.get("C15BASIC")),
+                "carnegie_institution_size_2025": ipeds_value(row.get("CARNEGIESIZE")),
                 "locale": ipeds_value(row.get("LOCALE")),
                 "land_grant": ipeds_value(row.get("LANDGRNT")) == "1",
                 "hbcu": ipeds_value(row.get("HBCU")) == "1",
                 "tribal": ipeds_value(row.get("TRIBAL")) == "1",
                 "religious_affiliation": ipeds_value(row.get("RELAFFIL")),
             }, locator=locator),
-            CandidateFact("program_offerings", offerings, locator=locator, confidence=1.0),
+            CandidateFact("program_offerings", {**offerings,
+                                                  "ipeds_reporting_year": self.reporting_year},
+                          applicability_key=self.reporting_year,
+                          locator=locator, confidence=1.0),
         ]
         return candidate
 
 
 class IpedsFinancialAdapter(_ZipCsvAdapter):
-    """IC2023 — institution-reported room/board rates and graduate application fee."""
+    """Configurable official IC release for institution-level costs, not program tuition."""
 
     source_key = "ipeds_ic"
-    file_name = "IC2023.zip"
-    csv_name = "IC2023.csv"
+    # These survey variables are present in IC2023_dict.xlsx but absent from
+    # the IC2024 schema. Keep the mapped historical release explicit.
+    required_columns = ("UNITID", "ROOMAMT", "BOARDAMT", "RMBRDAMT", "APPLFEEG")
+
+    def __init__(self, release_year: int | None = None):
+        self.reporting_year = str(IPEDS_IC_RELEASE_YEAR if release_year is None else release_year)
+        _validate_release_year(self.reporting_year, source="IC")
+        self.file_name = f"IC{self.reporting_year}.zip"
+        self.csv_name = f"IC{self.reporting_year}.csv"
+        self.academic_period = f"Academic year {self.reporting_year}-{str(int(self.reporting_year) + 1)[-2:]}"
 
     def to_candidate(self, row: dict) -> CandidateInstitution | None:
         unitid = ipeds_value(row.get("UNITID"))
@@ -234,7 +301,7 @@ class IpedsFinancialAdapter(_ZipCsvAdapter):
             return None
         reported = {}
         for key, column in (("room_rate", "ROOMAMT"), ("board_rate", "BOARDAMT"),
-                            ("room_and_board_rate", "RMBDAMT"),
+                            ("room_and_board_rate", "RMBRDAMT"),
                             ("graduate_application_fee", "APPLFEEG")):
             amount = ipeds_amount(row.get(column))
             if amount is not None:
@@ -247,10 +314,12 @@ class IpedsFinancialAdapter(_ZipCsvAdapter):
             require_existing=True)
         candidate.facts = [CandidateFact(
             "institutional_costs", {**reported, "currency": "USD",
-                                    "academic_period": ACADEMIC_PERIOD,
+                                    "reporting_year": self.reporting_year,
+                                    "academic_year": f"{self.reporting_year}-{str(int(self.reporting_year) + 1)[-2:]}",
                                     "student_category": "institution-wide reported rate"},
-            normalized=reported, applicability_key=ACADEMIC_PERIOD,
-            locator=f"IC2023.csv: UNITID={unitid}", confidence=1.0)]
+            normalized=reported,
+            applicability_key=f"{self.reporting_year}-{str(int(self.reporting_year) + 1)[-2:]}",
+            locator=f"IC{self.reporting_year}.csv: UNITID={unitid}", confidence=1.0)]
         return candidate
 
 
@@ -279,7 +348,8 @@ class NcesCipAdapter(SourceAdapter):
             document=SourceDoc(url=CIP_INDEX_URL, title="NCES CIP code lookup",
                                document_type="html", content=result.content,
                                http_status=result.status, etag=result.etag,
-                               last_modified=result.last_modified),
+                               last_modified=result.last_modified,
+                          retrieval_attempt_count=getattr(result, "attempts", 1)),
             fields=fields, warnings=[] if fields else ["no CIP series could be parsed"])
 
 
@@ -296,6 +366,7 @@ class IpedsCompletionsAdapter(_ZipCsvAdapter):
     """
 
     source_key = "ipeds_completions"
+    reporting_year = "2023"
     file_name = "C2023_A.zip"
     csv_name = "C2023_a.csv"
 
@@ -326,8 +397,8 @@ class IpedsCompletionsAdapter(_ZipCsvAdapter):
         program.facts = [CandidateFact(
             "awards_conferred", {"count": str(awards), "award_level_code": awlevel,
                                   "award_level_label": label, "cip_code": cip,
-                                  "academic_period": ACADEMIC_PERIOD},
-            normalized={"count": str(awards)}, applicability_key=ACADEMIC_PERIOD,
+                                  "reporting_year": "2023"},
+            normalized={"count": str(awards)}, applicability_key="2023",
             locator=f"{self.csv_name}: UNITID={unitid}, CIPCODE={cip}, AWLEVEL={awlevel}",
             confidence=1.0)]
         candidate.programs.append(program)
@@ -359,9 +430,16 @@ def _decimal(raw) -> Decimal | None:
         return None
 
 
-def _read_csv(path: Path) -> Iterator[dict]:
+def _read_csv(path: Path, *, required_columns: tuple[str, ...] = ()) -> Iterator[dict]:
     with path.open("r", encoding="utf-8-sig", newline="") as handle:
-        yield from csv.DictReader(handle)
+        reader = csv.DictReader(handle)
+        missing = sorted(set(required_columns) - set(reader.fieldnames or ()))
+        if missing:
+            raise ValueError(f"IPEDS {path.name} is missing required dictionary columns: "
+                             f"{', '.join(missing)}")
+        yield from reader
+
+
 
 
 def _extract_member(zip_path: Path, member: str) -> Path:

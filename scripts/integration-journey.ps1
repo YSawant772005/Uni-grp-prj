@@ -2,15 +2,30 @@
 # detail -> eligibility -> compare -> save -> finance -> admin review.
 # Fails fast (exit 1) on any unexpected status; prints each step's result.
 $ErrorActionPreference = 'Stop'
-# NGINX host port: WEB_PORT env var, else WEB_PORT in .env, else 8080
-$webPort = $env:WEB_PORT
-if (-not $webPort -and (Test-Path (Join-Path (Split-Path $PSScriptRoot -Parent) '.env'))) {
-  $m = Select-String -Path (Join-Path (Split-Path $PSScriptRoot -Parent) '.env') -Pattern '^WEB_PORT=(.+)$'
-  if ($m) { $webPort = $m.Matches[0].Groups[1].Value.Trim() }
+if ($env:UNISHORTLIST_TEST_MODE -ne '1') {
+  throw 'Refusing integration journey: set UNISHORTLIST_TEST_MODE=1 explicitly.'
 }
-if (-not $webPort) { $webPort = '8080' }
-$base = "http://localhost:$webPort"
+if (-not $env:TEST_API_BASE_URL) {
+  throw 'Refusing integration journey: TEST_API_BASE_URL must identify the isolated test NGINX endpoint.'
+}
+$testPort = if ($env:TEST_WEB_PORT) { [int]$env:TEST_WEB_PORT } else { 8081 }
+$testUri = $null
+if (-not [Uri]::TryCreate($env:TEST_API_BASE_URL, [UriKind]::Absolute, [ref]$testUri) -or
+    $testUri.Scheme -ne 'http' -or $testUri.Host -notin @('localhost', '127.0.0.1') -or
+    $testUri.Port -ne $testPort -or $testUri.AbsolutePath -ne '/' -or
+    $testUri.Query -or $testUri.Fragment -or $testUri.UserInfo) {
+  throw "Refusing integration journey: endpoint must be the local isolated test stack on port $testPort."
+}
+$base = $env:TEST_API_BASE_URL.TrimEnd('/')
 $api = "$base/api/v1"
+
+# A hostname/port is not proof of isolation. The test API exposes this marker
+# only after its startup guard has verified the actual PostgreSQL test marker.
+$ready = Invoke-RestMethod -Uri "$api/health/ready" -Method Get
+if ($ready.status -ne 'ready' -or $ready.schema -ne 'initialized' -or
+    $ready.database_target -ne 'isolated_test') {
+  throw 'Refusing integration journey: endpoint did not prove isolated test database identity.'
+}
 $script:fail = 0
 
 # Runs a scriptblock, returns a normalized object { StatusCode, Content } even

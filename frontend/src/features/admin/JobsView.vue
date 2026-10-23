@@ -147,7 +147,7 @@ const canRetry = (status: string) => status === 'failed' || status === 'cancelle
               <tr>
                 <th>Type</th>
                 <th>Status</th>
-                <th>Records seen/created/updated/rejected</th>
+                <th>Entity rows seen/created/updated/rejected</th>
                 <th>Worker</th>
                 <th>Started → finished</th>
                 <th>Error</th>
@@ -197,6 +197,34 @@ const canRetry = (status: string) => status === 'failed' || status === 'cancelle
                           created by {{ detail.data.value.created_by_user_id ? `user ${detail.data.value.created_by_user_id.slice(0, 8)}…` : 'scheduler' }}
                           · created {{ formatDateTime(detail.data.value.created_at) }}
                         </p>
+                        <section class="card" style="padding: 12px; margin: 0">
+                          <h5 style="margin: 0 0 6px">Ingestion metrics</h5>
+                          <template v-if="detail.data.value.metrics.version === 2">
+                            <p class="small" style="margin: 0">
+                              Institutions: {{ detail.data.value.metrics.institutions?.seen ?? 0 }} seen,
+                              {{ detail.data.value.metrics.institutions?.created ?? 0 }} created,
+                              {{ detail.data.value.metrics.institutions?.updated ?? 0 }} updated,
+                              {{ detail.data.value.metrics.institutions?.unchanged ?? 0 }} unchanged.
+                              Programs: {{ detail.data.value.metrics.programs?.seen ?? 0 }} seen,
+                              {{ detail.data.value.metrics.programs?.created ?? 0 }} created,
+                              {{ detail.data.value.metrics.programs?.updated ?? 0 }} updated,
+                              {{ detail.data.value.metrics.programs?.unchanged ?? 0 }} unchanged.
+                            </p>
+                            <p class="small" style="margin: 4px 0 0">
+                              Facts: {{ detail.data.value.metrics.facts?.created ?? 0 }} created,
+                              {{ detail.data.value.metrics.facts?.updated ?? 0 }} updated,
+                              {{ detail.data.value.metrics.facts?.unchanged ?? 0 }} unchanged;
+                              {{ detail.data.value.metrics.conflicted ?? 0 }} conflicted (included in needs review).
+                              Rejected: {{ detail.data.value.metrics.rejected }};
+                              needs review: {{ detail.data.value.metrics.needs_review }};
+                              skipped: {{ detail.data.value.metrics.skipped ?? 0 }}.
+                            </p>
+                          </template>
+                          <p v-else class="small muted" style="margin: 0">
+                            Legacy counters combine institution and program rows. Review counts are aggregate;
+                            conflict and fact breakdowns were not recorded for this job.
+                          </p>
+                        </section>
                         <div v-if="detail.data.value.items.length" class="table-wrap">
                           <table class="data">
                             <thead>

@@ -176,6 +176,45 @@ Suggested `GET /programs` query parameters:
 `q`, `country`, `city`, `field`, `degree_level`, `language`, `intake`, `min_duration_months`, `max_duration_months`, `max_tuition`, `currency`, `recognition_status`, `page`, `page_size`, `sort`, `order`.
 Budget/tuition filtering must clearly define whether it filters tuition alone or full estimated cost. Do not conflate them.
 
+#### Evidence and academic coverage (additive implementation fields)
+
+Programme detail, list summaries, saved programmes and comparison items expose:
+
+- `data_quality`: retained for compatibility. Its legacy status uses tuition,
+  admission-requirement verification, intake-row presence and outcome-row presence.
+  It does not establish programme-page verification or comprehensive academic coverage.
+- `source_verification`: `program_identity_status` (`accepted`, `unavailable`,
+  `demo_fixture`), `official_program_page_status` (`verified`, `candidate`,
+  `unavailable`, `demo_fixture`), a verified `official_program_url` or null,
+  `verified_at`, source document/retrieval metadata and a reason when unresolved.
+  An accepted source identifier is not an institution approval or publication decision.
+- `academic_completeness`: independent `fields` statuses (`verified`, `unverified`,
+  `unavailable`) for duration, teaching language, tuition, admission requirements,
+  intake dates, application deadline and programme outcomes. Populated values
+  require current matching reviewed facts and permitted supporting evidence to
+  count as verified. `status` is `limited` when no category is verified, `partial`
+  when some are verified, and `complete` when all seven categories are verified.
+  Counts describe these categories; they do not promise exhaustive information,
+  admission eligibility, a current application window or future outcomes.
+  Machine-readable warnings remain available; clients should display readable labels.
+
+Programme detail retains nullable `description` and adds nullable
+`description_source` with attribution, source URL, retrieval/review timestamps and
+fact/version IDs. Existing authored descriptions remain intact. New official-page
+description passages are private candidate `program_description` facts. The existing
+reviewer/admin fact-approval endpoint accepts optional `description_summary` for
+that fact key only, with a reason. It appends a version containing an independently
+written summary (40–600 plain-text characters, at most 90 words), copies its source
+evidence and verifies it through the existing review process. An existing authored
+description cannot be overwritten by this action. Raw description drafts/passages
+are excluded from public `/programs/{id}/evidence`; reviewed summaries and their
+source attribution are published in programme detail. Withdrawn summaries are
+hidden without deleting their stored text or history.
+
+Programme routes and lookups use UUIDs. Slugs are display metadata, not lookup
+identifiers. New slugs normalize accented Latin characters; existing slugs are
+not regenerated on lookup, review or repeat ingestion.
+
 ### 5.5 Eligibility and recommendations
 | Method | Path | Access | Purpose |
 |---|---|---|---|
@@ -308,6 +347,11 @@ Reviews require moderation, anti-abuse controls, privacy-safe display and clear 
 | POST | `/admin/facts/{fact_id}/approve` | Reviewer/admin | Approve/publish with audit event |
 | POST | `/admin/facts/{fact_id}/reject` | Reviewer/admin | Reject with reason |
 | POST | `/admin/facts/{fact_id}/request-evidence` | Reviewer/admin | Request more evidence |
+| GET | `/admin/identity-reviews` | Reviewer/admin | List ambiguous institution identity candidates |
+| GET | `/admin/identity-reviews/{review_id}` | Reviewer/admin | Inspect candidate identifiers and source document |
+| POST | `/admin/identity-reviews/{review_id}/approve` | Reviewer/admin | Link source identifiers to an existing institution with a reason |
+| POST | `/admin/identity-reviews/{review_id}/reject` | Reviewer/admin | Reject a proposed source identity with a reason |
+| POST | `/admin/identity-reviews/{review_id}/defer` | Reviewer/admin | Defer identity resolution with a reason |
 | GET | `/admin/sources` | Reviewer/admin | List source registry |
 | POST | `/admin/sources` | Admin | Register source |
 | GET | `/admin/sources/{source_id}` | Reviewer/admin | Source detail |
@@ -430,3 +474,81 @@ Required API tests:
 6. Connect Vue typed API client and handle loading/empty/error states.
 7. Update this document whenever a contract changes.
 8. Use a shared Git branch/PR review; do not merge unreviewed contract-breaking changes.
+
+## 12. Master's evidence review contract (implemented 2026-10-21)
+
+- `GET /admin/institution-reviews` accepts `stage=all|discovery|evidence_collection|ready_for_review`
+  alongside existing status/page/page_size. Stage filtering precedes pagination.
+  `stage_counts` describes the categories for the selected review status.
+- `GET /admin/institution-reviews/{university_id}` returns grouped `programs`,
+  `program_coverage`, `catalogue_sources`, `source_discovery`, `workflow`, website
+  evidence, `approval_eligibility`, missing information and existing review events.
+  Named offerings expose source identities, row facts, applicability, URL evidence
+  and `identity_layers` for qualification, pathway, stage and location.
+- Zero programs means discovery is incomplete; it is never evidence that no
+  Master's programs exist. Institution approval rejects an insufficient package.
+- Existing fact approval explicitly verifies a fact version and may project its
+  supported structured fields. `projection_status=applied|evidence_only` distinguishes
+  structured projection from retained prose. It does not publish a program.
+- Program publication requires an approved institution, coherent current offering
+  evidence and a separately reviewed individual university course page or government
+  program record. `official_registry_reference` is distinct from a university URL;
+  registry/dataset/catalogue links must not be represented as verified course pages.
+- Admin-only `GET /admin/catalogue-archives` lists immutable reset operations;
+  `GET /admin/catalogue-archives/{operation_id}` supports optional `table_name`,
+  `page`, `page_size` and returns original row payloads and hashes. Archived identity
+  review detail and audit events expose `archive_context`; archived records cannot
+  receive active identity decisions. Reset itself is operator CLI only.
+- Source detail describes scheduling approval/bounds and actual scheduler state.
+  A configured interval is not operational approval. Historical job aggregates are
+  retained alongside explicit current per-entity metrics.
+- Public visibility still requires active published programs belonging to approved
+  institutions, apart from explicitly labelled demo fixtures. Unknown data remains
+  null with status/limitations; conflicts do not silently become verified facts.
+- `/health/ready` returns 503 when required schema is missing/incompatible. Optional
+  additive archive/freshness fields have deliberate backward-compatible reads.
+
+See [the implementation report](MASTERS_IMPLEMENTATION_REPORT.md) for verified
+coverage and [the archive runbook](CATALOGUE_ARCHIVE_RESET_RUNBOOK.md) for the exact
+approved operation and provenance guarantees.
+
+
+## Global reference directory (additive, separate from the reviewed catalogue)
+
+`GET /directory/institutions` is public, with `q` (Unicode NFKC/casefold substring,
+maximum 200 characters), optional two-character `country`, `page` and `page_size`
+(maximum 100). Results use the common pagination envelope plus `directory_status`,
+release provenance and a reference-only notice. Each item exposes its source ROR
+ID/name/names/country codes, source record URL, ordinal/hash, `record_status:
+unreviewed_reference`, `masters_availability: not_assessed`, and a website object
+whose status is `candidate` or `unavailable`. It never represents institution
+approval, accreditation or verified Master's availability. The directory uses
+the latest completed source release; partial imports do not replace it. Duplicate
+source-ID conflicts are quarantined and excluded from public results.
+
+`GET /directory/stats` is public and returns current release counts by primary
+ROR country/territory code, release provenance and CC0/GeoNames attribution. No source artifact filesystem paths are public.
+Before a completed import, it returns `not_loaded` with zero records; before the
+migration it returns `not_deployed`. Institution listing before migration returns
+503 `DIRECTORY_NOT_DEPLOYED`.
+
+`GET /admin/directory/reconciliation` requires reviewer/admin roles. It accepts
+`status` (reference_only, active_identifier_match, active_identifier_conflict,
+authoritative_match_review, archived_identity_review, similar_name_review,
+source_conflict) and common pagination. Without a status it lists only records
+requiring investigation. It exposes active/archived/weak-name identity hints;
+this read-only queue accepts no merge, identity approval or publication actions.
+Any later catalogue promotion must use existing evidence/identity reviews.
+
+Existing `/programs`, details, shortlists and student publication gates are
+unchanged. Directory records do not populate the canonical `universities` table,
+programme rows, student profile reference countries or review queues.
+
+
+Bulk ROR jobs continue to use the existing admin job listing/details. Their
+version-2 metrics report zero canonical institutions/programmes/facts and an
+additive `directory_records` block (seen/created/unchanged plus per-country and
+reconciliation counters). Generic `/admin/jobs/{id}/retry` refuses these jobs
+with 409 `DIRECTORY_RESUME_REQUIRED`; operators must use the exact approved bulk
+plan and `--resume-job`. The ordinary ingestion pipeline and scheduler cannot
+adopt these directory jobs. Scheduling remains disabled operationally.

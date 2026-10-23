@@ -12,6 +12,7 @@ from app.models import Program, User
 from app.services import eligibility as eligibility_engine
 from app.services import profiles as profile_service
 from app.services import recommendations as rec_service
+from app.services import catalog as catalog_service
 
 router = APIRouter(tags=["eligibility"])
 
@@ -31,10 +32,9 @@ async def evaluate(payload: EvaluationIn, user: User = Depends(get_current_user)
     items = []
     for pid in payload.program_ids:
         program = db.get(Program, pid)
-        if program is None or program.publication_status != "published" or not program.is_active:
+        if program is None or not catalog_service.student_visible_program(db, program):
             raise ApiError(404, "NOT_FOUND", f"Program {pid} not found.")
-        ev = eligibility_engine.evaluate_program(
-            profile, eligibility_engine.load_requirements(db, pid))
+        ev = eligibility_engine.evaluate_for_program(db, profile, pid)
         items.append({"program_id": pid, "program_name": program.canonical_name, **ev})
     return {"items": items}
 

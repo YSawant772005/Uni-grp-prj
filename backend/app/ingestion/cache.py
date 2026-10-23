@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger("uni.ingestion")
@@ -35,6 +36,13 @@ def store(ctx, label: str, payload: bytes) -> None:
     if path.exists():
         path.unlink()
     path.write_bytes(payload)
+    meta_path = path.with_suffix(".meta.json")
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    except (OSError, ValueError):
+        meta = {}
+    meta["retrieved_at"] = datetime.now(timezone.utc).isoformat()
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
 
 def read_meta(ctx, label: str) -> dict:
@@ -48,8 +56,13 @@ def read_meta(ctx, label: str) -> dict:
 
 
 def write_meta(ctx, label: str, meta: dict) -> None:
-    cache_path(ctx, label).with_suffix(".meta.json").write_text(
-        json.dumps(meta, indent=2), encoding="utf-8")
+    meta_path = cache_path(ctx, label).with_suffix(".meta.json")
+    try:
+        existing = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+    except (OSError, ValueError):
+        existing = {}
+    existing.update(meta)
+    meta_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
 
 def total_bytes() -> int:
@@ -62,12 +75,13 @@ def total_bytes() -> int:
 def prune(limit: int = KEEP_BYTES) -> None:
     """Evict least-recently-used downloads once the cache exceeds ``limit``."""
     directory = cache_dir()
-    files = [p for p in directory.glob("*") if p.is_file() and p.suffix != ".json"]
+    files = [p for p in directory.glob("*") if p.is_file() and not p.name.endswith(".meta.json")]
     if sum(p.stat().st_size for p in files) <= limit:
         return
     for path in sorted(files, key=lambda p: p.stat().st_mtime):
         if sum(p.stat().st_size for p in files) <= limit:
             break
         path.unlink(missing_ok=True)
+        path.with_suffix(".meta.json").unlink(missing_ok=True)
         files.remove(path)
         logger.info("pruned cached download %s", path.name)

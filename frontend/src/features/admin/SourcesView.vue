@@ -197,6 +197,7 @@ async function refresh(sourceId: string) {
                 <th>Type / tier</th>
                 <th>Policy</th>
                 <th>Refresh</th>
+                <th>Last check / dataset period</th>
                 <th>Docs / jobs</th>
                 <th></th>
               </tr>
@@ -215,6 +216,13 @@ async function refresh(sourceId: string) {
                 <td class="small">
                   <StatusBadge :status="source.enabled ? 'fresh' : 'cancelled'" :label="source.enabled ? 'enabled' : 'disabled'" />
                   <div v-if="source.refresh_interval_hours" class="muted">every {{ source.refresh_interval_hours }}h</div>
+                  <div v-if="source.next_refresh_at" class="muted">next {{ source.next_refresh_at }}</div>
+                </td>
+                <td class="small">
+                  <div>{{ source.last_success_at ?? 'No successful check recorded' }}</div>
+                  <div v-if="source.latest_academic_period" class="muted">period {{ source.latest_academic_period }}</div>
+                  <div v-if="source.latest_source_published_at" class="muted">published {{ source.latest_source_published_at }}</div>
+                  <span v-if="source.freshness_status === 'stale'" class="error">Source is overdue for refresh.</span>
                 </td>
                 <td class="small">{{ source.document_count ?? '—' }} / {{ source.job_count ?? '—' }}</td>
                 <td>

@@ -1,6 +1,7 @@
 # secrets / env
 .env
 .env.local
+.env.test
 *.pem
 
 # python
@@ -16,6 +17,11 @@ htmlcov/
 
 # downloaded source datasets (never commit raw source data)
 .ingestion_cache/
+
+# Logical database backups are private data and must stay outside Git.
+*.dump
+*.dump.meta
+.db-backups/
 
 # node
 node_modules/

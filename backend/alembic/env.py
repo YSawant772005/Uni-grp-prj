@@ -1,19 +1,34 @@
 """Alembic environment configuration.
 
-The database URL comes from application settings (env/.env), never from committed
-credentials. All ORM models are imported through ``app.models`` so autogenerate sees
-the complete metadata.
+The migration target is explicit. All ORM models are imported through ``app.models``
+so autogenerate sees the complete metadata.
 """
+import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
+from app.db.safety import verify_development_target, verify_recovery_target, verify_test_target
 from app.models import Base
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
+
+target = os.environ.get("MIGRATION_TARGET")
+if target == "test":
+    if not settings.unishortlist_test_mode:
+        raise RuntimeError("Refusing migration: test target requires UNISHORTLIST_TEST_MODE=1.")
+    verify_test_target(settings.database_url)
+elif target == "development":
+    if settings.is_production:
+        raise RuntimeError("Refusing development migration while ENVIRONMENT=production.")
+    verify_development_target(settings.database_url)
+elif target == "recovery":
+    verify_recovery_target(settings.database_url)
+else:
+    raise RuntimeError("Refusing migration: set MIGRATION_TARGET=development, test, or recovery explicitly.")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

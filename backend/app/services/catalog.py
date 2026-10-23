@@ -14,9 +14,10 @@ import uuid
 from datetime import date
 
 from sqlalchemy import and_, asc, desc, exists, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.core.errors import ApiError
+from app.services.program_evidence import official_program_page, official_registry_page, public_program_page_url
 from app.models import (
     AdmissionRequirement,
     Campus,
@@ -26,7 +27,9 @@ from app.models import (
     FactRecord,
     FactVersion,
     Field,
+    InstitutionReview,
     Program,
+    ProgramIdentifier,
     ProgramFee,
     ProgramIntake,
     ProgramOutcomeEvidence,
@@ -43,6 +46,36 @@ RECOGNITION_STATUSES = ("official", "candidacy", "unknown", "not_officially_reco
 PRICING_STATUSES = ("verified", "estimated", "unverified", "stale", "conflicted", "unavailable")
 _STATUS_RANK = {s: i for i, s in enumerate(
     ("verified", "estimated", "unverified", "stale", "conflicted", "unavailable"))}
+
+
+def institution_approved_clause():
+    """SQL predicate shared by every student-facing program lookup.
+
+    Synthetic fixtures are explicitly labelled and remain visible as demo data.
+    Real institutions require an explicit institution-level reviewer decision.
+    """
+    approved = select(InstitutionReview.university_id).where(
+        InstitutionReview.status == "approved")
+    demo = select(University.id).where(
+        University.id == Program.university_id,
+        University.external_identifiers["demo_fixture"].astext == "true").correlate(Program)
+    return or_(Program.university_id.in_(approved), Program.university_id.in_(demo))
+
+
+def institution_is_approved(db: Session, university_id: uuid.UUID) -> bool:
+    university = db.get(University, university_id)
+    if university is None:
+        return False
+    if (university.external_identifiers or {}).get("demo_fixture"):
+        return True
+    return db.scalar(select(InstitutionReview.id).where(
+        InstitutionReview.university_id == university_id,
+        InstitutionReview.status == "approved").limit(1)) is not None
+
+
+def student_visible_program(db: Session, program: Program) -> bool:
+    return (program.publication_status == "published" and program.is_active
+            and institution_is_approved(db, program.university_id))
 
 
 def _err(field: str, message: str) -> ApiError:
@@ -62,7 +95,7 @@ def _require_known(db: Session, model, column, value, label: str):
 def _page_context(db: Session, program_ids: list[uuid.UUID]) -> dict:
     """Batch-load related rows for a page of programs (fixed number of queries)."""
     ctx: dict = {"intakes": {}, "fees": {}, "requirements": {}, "facts": {},
-                 "outcomes": {}, "fields": {}}
+                 "outcomes": {}, "fields": {}, "program_facts": {}, "accepted_program_keys": set()}
     if not program_ids:
         return ctx
 
@@ -82,18 +115,26 @@ def _page_context(db: Session, program_ids: list[uuid.UUID]) -> dict:
         ctx["outcomes"].setdefault(row.program_id, []).append(row)
     ctx["fields"] = {f.id: {"key": f.key, "display_name": f.display_name}
                      for f in db.scalars(select(Field))}
+    ctx["accepted_program_keys"] = set(db.execute(select(
+        ProgramIdentifier.program_id, ProgramIdentifier.source_id, ProgramIdentifier.external_key)
+        .where(ProgramIdentifier.program_id.in_(program_ids), ProgramIdentifier.claim_status == "accepted")).all())
 
     # fact provenance for the programs' fees/requirements/outcomes
     fact_rows = db.execute(
-        select(FactRecord, FactVersion, SourceDocument, Source)
+        select(FactRecord, FactVersion, FactEvidence, SourceDocument, Source)
         .join(FactVersion, FactVersion.id == FactRecord.current_version_id, isouter=True)
         .join(FactEvidence, FactEvidence.fact_version_id == FactVersion.id, isouter=True)
         .join(SourceDocument, SourceDocument.id == FactEvidence.source_document_id, isouter=True)
         .join(Source, Source.id == SourceDocument.source_id, isouter=True)
+        .options(defer(SourceDocument.content_excerpt))
         .where(FactRecord.entity_type == "program", FactRecord.entity_id.in_(program_ids))
     ).all()
-    for rec, ver, doc, src in fact_rows:
+    for rec, ver, evidence, doc, src in fact_rows:
         ctx["facts"][rec.id] = _provenance(rec, ver, doc, src)
+        entry = ctx["program_facts"].setdefault(rec.entity_id, {}).setdefault(
+            rec.id, {"record": rec, "version": ver, "evidence": []})
+        if evidence and doc and src:
+            entry["evidence"].append((evidence, doc, src))
     return ctx
 
 
@@ -138,7 +179,7 @@ def _money_object(fee: ProgramFee | None, provenance: dict | None) -> dict:
         "period": fee.period,
         "academic_year": fee.academic_year,
         "applicable_intake": None,
-        "status": fee.status,
+        "status": provenance.get("status", fee.status) if provenance else fee.status,
         "source": provenance.get("source") if provenance else None,
     }
 
@@ -166,6 +207,7 @@ def _data_quality(tuition_status: str | None, requirement_statuses: list[str],
 
 
 def _summary(program: Program, university: University, city: City | None, ctx: dict) -> dict:
+    from app.services.program_quality import academic_completeness, source_verification
     intakes = ctx["intakes"].get(program.id, [])
     fees = ctx["fees"].get(program.id, [])
     reqs = ctx["requirements"].get(program.id, [])
@@ -194,6 +236,7 @@ def _summary(program: Program, university: University, city: City | None, ctx: d
             "country_code": university.country_code,
             "recognition_status": university.recognition_status,
             "city": city.name if city else None,
+            "official_website_url": university.official_website_url,
         },
         "nearest_intake": (
             {"intake_year": nearest.intake_year, "intake_term": nearest.intake_term,
@@ -203,11 +246,13 @@ def _summary(program: Program, university: University, city: City | None, ctx: d
         ),
         "tuition_summary": _money_object(tuition, prov),
         "data_quality": _data_quality(
-            tuition.status if tuition else None,
+            prov.get("status", tuition.status) if prov and tuition else (tuition.status if tuition else None),
             [ctx["facts"].get(r.source_fact_id, {}).get("status", "unverified") for r in reqs],
             has_intake=bool(intakes),
             has_program_outcomes=bool(ctx["outcomes"].get(program.id)),
         ),
+        "source_verification": source_verification(program, university, ctx),
+        "academic_completeness": academic_completeness(program, ctx),
     }
 
 
@@ -239,7 +284,7 @@ def _fee_item(fee: ProgramFee, ctx: dict) -> dict:
         "academic_year": fee.academic_year,
         "student_category": fee.student_category,
         "is_mandatory": fee.is_mandatory,
-        "status": fee.status,
+        "status": prov.get("status", fee.status) if prov else fee.status,
         "provenance": prov,
     }
 
@@ -285,7 +330,8 @@ def search_programs(db: Session, *, q=None, country=None, city=None, field=None,
     if currency is not None:
         currency = currency.upper()
 
-    conds = [Program.publication_status == "published", Program.is_active.is_(True)]
+    conds = [Program.publication_status == "published", Program.is_active.is_(True),
+             institution_approved_clause()]
     if q:
         like = f"%{q.strip()}%"
         conds.append(or_(Program.canonical_name.ilike(like), University.canonical_name.ilike(like)))
@@ -362,7 +408,8 @@ def _load_program(db: Session, program_id: uuid.UUID):
         .outerjoin(Campus, Program.campus_id == Campus.id)
         .outerjoin(City, Campus.city_id == City.id)
         .where(Program.id == program_id,
-               Program.publication_status == "published", Program.is_active.is_(True))
+               Program.publication_status == "published", Program.is_active.is_(True),
+               institution_approved_clause())
     ).first()
     if row is None:
         raise ApiError(404, "NOT_FOUND", "Program not found.")
@@ -370,12 +417,19 @@ def _load_program(db: Session, program_id: uuid.UUID):
 
 
 def get_program(db: Session, program_id: uuid.UUID) -> dict:
+    from app.services.program_descriptions import public_description
     program, university, city = _load_program(db, program_id)
     ctx = _page_context(db, [program.id])
     summary = _summary(program, university, city, ctx)
+    description, description_source = public_description(db, program)
     summary.update({
-        "description": program.description,
-        "official_program_url": program.official_program_url,
+        "description": description,
+        "description_source": description_source,
+        "official_registry_reference": official_registry_page(db, program),
+        "official_program_url": public_program_page_url(db, program, university),
+        "official_program_url_status": (
+            "demo_fixture" if (university.external_identifiers or {}).get("demo_fixture")
+            and program.official_program_url else official_program_page(db, program)["status"]),
         "intakes": [_intake_item(i) for i in ctx["intakes"].get(program.id, [])],
         "fees": [_fee_item(f, ctx) for f in ctx["fees"].get(program.id, [])],
         "requirements": [_requirement_item(r, ctx) for r in ctx["requirements"].get(program.id, [])],
@@ -412,10 +466,12 @@ def get_intakes(db: Session, program_id: uuid.UUID) -> list[dict]:
 def get_evidence(db: Session, program_id: uuid.UUID, *, page=1, page_size=20) -> dict:
     program, _, _ = _load_program(db, program_id)
     total = db.scalar(select(func.count()).select_from(FactRecord).where(
-        FactRecord.entity_type == "program", FactRecord.entity_id == program.id)) or 0
+        FactRecord.entity_type == "program", FactRecord.entity_id == program.id,
+        FactRecord.fact_key != "program_description")) or 0
     records = db.scalars(
         select(FactRecord).where(FactRecord.entity_type == "program",
-                                 FactRecord.entity_id == program.id)
+                                 FactRecord.entity_id == program.id,
+                                 FactRecord.fact_key != "program_description")
         .order_by(FactRecord.fact_key, FactRecord.id)
         .offset((page - 1) * page_size).limit(page_size)).all()
 
@@ -449,7 +505,10 @@ def get_evidence(db: Session, program_id: uuid.UUID, *, page=1, page_size=20) ->
                  "title": doc.title if doc else None,
                  "url": doc.canonical_url if doc else None,
                  "retrieved_at": doc.retrieved_at if doc else None,
+                 "http_status": doc.http_status if doc else None,
+                 "fetch_status": doc.fetch_status if doc else None,
                  "excerpt": ev.evidence_excerpt,
+                 "locator": ev.evidence_locator,
                  "supports_or_conflicts": ev.supports_or_conflicts}
                 for ev, doc, src in ev_rows
             ],

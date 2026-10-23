@@ -14,12 +14,15 @@ from decimal import Decimal
 
 import httpx
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func, select, text
 
 from app.core.errors import ApiError
-from app.ingestion import persist, registry
+from app.ingestion import persist, pipeline, registry
 from app.ingestion.adapters.base import AdapterSpec, RunContext, SourceAdapter
-from app.ingestion.adapters.ipeds import IpedsDirectoryAdapter, NcesCipAdapter, _read_csv
+from app.ingestion.adapters.ipeds import (
+    IpedsDirectoryAdapter, IpedsFinancialAdapter, NcesCipAdapter, _read_csv,
+)
 from app.ingestion.adapters.ror import RorAdapter
 from app.ingestion.adapters.webpage import FieldRule, WebPageAdapter, WebPageConfig
 from app.ingestion.extract import (
@@ -54,6 +57,7 @@ from app.ingestion.types import (
 )
 from app.ingestion.validate import (
     institution_match_quality,
+    validate_facts,
     validate_institution,
     validate_program,
 )
@@ -64,9 +68,12 @@ from app.models import (
     Field,
     IngestionJob,
     IngestionJobItem,
+    InstitutionIdentifier,
+    InstitutionReview,
     Program,
     Source,
     SourceDocument,
+    SourceDocumentRetrieval,
     University,
 )
 
@@ -99,7 +106,7 @@ HD_ROW = {
     "GROFFER": "1", "UGOFFER": "1", "HLOFFER": "9", "OPEID": "00100500",
     "EIN": "636001109 ", "FIPS": "1", "LOCALE": "12", "LATITUDE": "34.783368",
     "LONGITUD": "-86.568502", "C21BASIC": "18", "C21SZSET": "14", "C18BASIC": "18",
-    "C15BASIC": "18", "LANDGRNT": "1", "HBCU": "1", "TRIBAL": "2", "RELAFFIL": "1",
+    "CARNEGIESIZE": "4", "LANDGRNT": "1", "HBCU": "1", "TRIBAL": "2",
 }
 
 CIP_HTML = """<html><body><select><option value="0">All</option>
@@ -260,6 +267,22 @@ class TestValidation:
         assert "out_of_range" in {i.code for i in validate_program(
             CandidateProgram(external_key="p", title="t", facts=[fact]))}
 
+    def test_fact_applicability_rejects_invalid_year_and_term(self):
+        fact = CandidateFact("tuition", {"amount": 1000},
+                             applicable_intake_year=2201,
+                             applicable_intake_term="monsoon")
+        issues = validate_facts([fact])
+        assert {(i.field, i.code) for i in issues} == {
+            ("applicable_intake_year", "out_of_range"),
+            ("applicable_intake_term", "invalid"),
+        }
+
+    def test_fact_applicability_accepts_supported_year_and_term(self):
+        fact = CandidateFact("tuition", {"amount": 1000},
+                             applicable_intake_year=2027,
+                             applicable_intake_term="fall")
+        assert validate_facts([fact]) == []
+
 
 # ------------------------------------------------------------------- adapters
 
@@ -276,6 +299,20 @@ class TestRorAdapter:
         assert item.identifiers["ror_grid"] == "grid.1"
         assert {f.fact_key for f in item.facts} == {
             "official_name", "aliases", "official_website_url", "location"}
+
+    def test_ror_relationships_are_preserved_as_unreviewed_evidence_not_links(self):
+        raw = dict(ROR_PAGE["items"][0], relationships=[
+            {"id": "https://ror.org/00parent01", "label": "Parent University", "type": "parent"},
+            {"id": "https://example.org/not-ror", "label": "Wrong host", "type": "parent"},
+            {"id": "https://ror.org/00ignored01", "label": "Unknown relation", "type": "invented"},
+        ])
+        item = RorAdapter()._to_institution(raw, 1)
+        fact = next(f for f in item.facts if f.fact_key == "ror_relationships_as_reported")
+        assert fact.status == "candidate"
+        assert fact.value == {"relationships": [{"ror_url": "https://ror.org/00parent01",
+                                                  "label": "Parent University", "type": "parent"}]}
+        assert fact.locator == "https://ror.org/00xyz1234"
+        assert fact.excerpt == "parent: Parent University"
 
     def test_records_without_identity_or_name_are_dropped(self):
         adapter = RorAdapter()
@@ -304,6 +341,51 @@ class TestIpedsAdapters:
                 "program_offerings", "institution_type"} <= keys
         offerings = next(f for f in candidate.facts if f.fact_key == "program_offerings")
         assert offerings.value["offers_graduate"] is True
+        assert offerings.applicability_key == "2024"
+        assert candidate.facts[0].value["ipeds_reporting_year"] == "2024"
+        classification = next(f for f in candidate.facts if f.fact_key == "classification")
+        assert classification.value["carnegie_institution_size_2025"] == "4"
+        assert classification.value["religious_affiliation"] is None
+        assert "carnegie_size_2021" not in classification.value
+
+    def test_release_is_configurable_and_file_columns_are_checked(self, tmp_path):
+        adapter = IpedsDirectoryAdapter(release_year=2024)
+        assert adapter.file_name == "HD2024.zip"
+        assert adapter.csv_name == "HD2024.csv"
+        with pytest.raises(ValueError, match="dictionary-verified release"):
+            IpedsDirectoryAdapter(release_year=2026)
+        with pytest.raises(ValueError, match="dictionary-verified release"):
+            IpedsDirectoryAdapter(release_year=2023)
+        with pytest.raises(ValueError, match="dictionary-verified release"):
+            IpedsFinancialAdapter(release_year=2024)
+        path = tmp_path / "wrong.csv"
+        path.write_text("UNITID,OTHER\n1,x\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="INSTNM"):
+            list(_read_csv(path, required_columns=("UNITID", "INSTNM")))
+
+    def test_ipeds_ic_uses_reporting_year_not_program_tuition_semantics(self):
+        adapter = IpedsFinancialAdapter(release_year=2023)
+        assert adapter.file_name == "IC2023.zip"
+        candidate = adapter.to_candidate({"UNITID": "100654", "ROOMAMT": "6000",
+                                          "RMBRDAMT": "9000"})
+        fact = candidate.facts[0]
+        assert fact.applicability_key == "2023-24"
+        assert fact.value["reporting_year"] == "2023"
+        assert fact.value["academic_year"] == "2023-24"
+        assert fact.value["room_and_board_rate"] == "9000"
+        assert fact.value["room_rate"] == "6000"
+        assert "academic_period" not in fact.value
+
+    def test_registered_ipeds_release_is_in_sync_with_fetch_urls(self):
+        from app.ingestion.adapters.ipeds import IPEDS_HD_RELEASE_YEAR, IPEDS_IC_RELEASE_YEAR
+        hd = get_spec("ipeds_hd")
+        ic = get_spec("ipeds_ic")
+        assert hd.base_url.endswith(f"HD{IPEDS_HD_RELEASE_YEAR}.zip")
+        assert ic.base_url.endswith(f"IC{IPEDS_IC_RELEASE_YEAR}.zip")
+        assert str(IPEDS_HD_RELEASE_YEAR) in hd.name and str(IPEDS_IC_RELEASE_YEAR) in ic.name
+        assert hd.refresh_interval_hours is None and hd.requires_explicit_limit
+        assert ic.refresh_interval_hours is None and ic.requires_explicit_limit
+        assert "not current tuition" in ic.notes
 
     def test_missing_directory_values_do_not_become_placeholders(self):
         row = dict(HD_ROW, WEBADDR=" ", CONTROL=" ", LATITUDE="-2", IALIAS="", UNITID=" ")
@@ -355,7 +437,7 @@ class TestWebPageAdapter:
             institution={"name": "Example University", "country_code": "NL",
                          "country_name": "Netherlands",
                          "identifiers": {"uni_web": "example"}},
-            program={"title": "MSc Data Science", "external_key": "nl:msc"},
+            program={"title": "MSc Data Science", "external_key": "nl:msc", "degree_level": "masters"},
             rules=[FieldRule("tuition_amount", "Annual tuition", "amount"),
                    FieldRule("application_deadline", "Application deadline", "date"),
                    FieldRule("duration", "Duration", "months"),
@@ -397,6 +479,31 @@ class TestWebPageAdapter:
         adapter.config.rules = [FieldRule("tuition_amount", column="tuition_eur")]
         batch = self._run(adapter, b"unitid,tuition_eur\n1,9800\n")
         assert batch.institutions[0].facts[0].value["value"] == "9800"
+
+    def test_json_program_list_and_program_facts_are_extracted_separately(self):
+        adapter = self._adapter(document_type="json")
+        adapter.config.rules = []
+        adapter.config.program = {
+            "items_json_path": "programmes",
+            "title_path": "name",
+            "external_key_path": "id",
+            "official_url_path": "url",
+            "degree_level": "masters",
+            "rules": [FieldRule("duration_months", json_path="duration_months")],
+        }
+        payload = json.dumps({"programmes": [
+            {"id": "msc-data", "name": "MSc Data Science",
+             "url": "https://uni.example.org/msc-data", "duration_months": 24},
+            {"id": "ma-policy", "name": "MA Public Policy", "duration_months": 18},
+            {"id": "missing-title", "url": "https://uni.example.org/unknown"},
+        ]}).encode()
+        batch = self._run(adapter, payload)
+        institution = batch.institutions[0]
+        assert institution.facts == []
+        assert [p.title for p in institution.programs] == ["MSc Data Science", "MA Public Policy"]
+        assert institution.programs[0].facts[0].value == {"value": "24"}
+        assert institution.programs[0].official_url == "https://uni.example.org/msc-data"
+        assert any("stable source key is missing" in warning for warning in batch.warnings)
 
     def test_malformed_documents_produce_warnings_not_exceptions(self):
         batch = self._run(self._adapter(), b"<<<not html>>>")
@@ -499,6 +606,27 @@ class TestHttpClient:
 # ------------------------------------------------------------------ persistence
 
 class TestPersistence:
+    def test_source_import_creates_one_pending_institution_review_and_nonidentity_claims_are_not_accepted(self, db):
+        source = persist.ensure_source(db, _spec())
+        document = persist.store_document(db, source, SourceDoc(
+            url="https://example.org/identity", content=b"identity"), persist.Counters())
+        candidate = _institution(identifiers={"ror": "00abc", "ipeds_fips": "1",
+                                              "ipeds_ein": "123456789"})
+        university, _ = persist.upsert_institution(
+            db, candidate, persist.InstitutionResolver(db), source=source,
+            source_document=document)
+        review = db.scalar(select(InstitutionReview).where(
+            InstitutionReview.university_id == university.id))
+        assert review is not None and review.status == "pending"
+        claims = {claim.namespace: claim.claim_status for claim in db.scalars(
+            select(InstitutionIdentifier).where(InstitutionIdentifier.university_id == university.id))}
+        assert claims == {"ror": "accepted", "ipeds_fips": "pending_review",
+                          "ipeds_ein": "pending_review"}
+        persist.upsert_institution(db, candidate, persist.InstitutionResolver(db),
+                                   source=source, source_document=document)
+        assert db.scalar(select(func.count()).select_from(InstitutionReview).where(
+            InstitutionReview.university_id == university.id)) == 1
+
     def test_fact_versions_are_appended_and_history_preserved(self, db):
         source = persist.ensure_source(db, _spec())
         document = persist.store_document(db, source, SourceDoc(
@@ -563,6 +691,7 @@ class TestPersistence:
                                    counters=counters) == "review"
         assert record.current_status == "conflicted"
         assert counters.review == 1
+        assert counters.conflicted == 1
         assert db.get(FactVersion, record.current_version_id).value_json == {"amount": "1000"}
 
     def test_two_sources_disagreeing_is_a_conflict_not_an_overwrite_loop(self, db):
@@ -587,6 +716,7 @@ class TestPersistence:
                                    source=source_b, document=doc_b, fact=fact_b,
                                    counters=counters) == "review"
         assert counters.review == 1
+        assert counters.conflicted == 1
         # repeating the same run changes nothing further
         assert persist.record_fact(db, entity_type="university", entity_id=university.id,
                                    source=source_b, document=doc_b, fact=fact_b,
@@ -631,6 +761,54 @@ class TestPersistence:
                                        counters)
         assert first.id == second.id and third.id != first.id
         assert counters.documents_unchanged == 1
+
+    def test_identical_retrieval_is_recorded_without_rewriting_content_freshness(self, db):
+        source = persist.ensure_source(db, _spec())
+        first = persist.store_document(db, source, SourceDoc(
+            url="https://source.example/data.csv", content=b"same",
+            source_date=date(2025, 1, 2), academic_period="2024-25", http_status=200),
+            persist.Counters())
+        original_change_time = first.last_content_changed_at
+        second = persist.store_document(db, source, SourceDoc(
+            url="https://source.example/data.csv", content=b"same",
+            source_date=date(2025, 1, 2), academic_period="2024-25", http_status=200,
+            retrieval_attempt_count=2), persist.Counters())
+        assert first.id == second.id
+        assert second.source_published_at == date(2025, 1, 2)
+        assert second.academic_period == "2024-25"
+        assert second.last_checked_at >= first.retrieved_at
+        assert second.last_content_changed_at == original_change_time
+        attempts = db.scalars(select(SourceDocumentRetrieval).where(
+            SourceDocumentRetrieval.source_document_id == first.id).order_by(
+                SourceDocumentRetrieval.attempted_at)).all()
+        assert [a.outcome for a in attempts] == ["fetched", "fetched"]
+        assert attempts[1].attempt_count == 2
+
+    def test_offline_cached_document_does_not_claim_a_new_source_check(self, db):
+        source = persist.ensure_source(db, _spec())
+        first = persist.store_document(db, source, SourceDoc(
+            url="https://source.example/offline.json", content=b"cached",
+            retrieval_attempt_count=1), persist.Counters())
+        original_checked = first.last_checked_at
+        prior_attempts = db.scalar(select(func.count()).select_from(SourceDocumentRetrieval))
+        cached = persist.store_document(db, source, SourceDoc(
+            url="https://source.example/offline.json", content=b"cached",
+            retrieved_at=first.retrieved_at, retrieval_attempt_count=0), persist.Counters())
+        assert cached.id == first.id
+        assert cached.last_checked_at == original_checked
+        assert db.scalar(select(func.count()).select_from(SourceDocumentRetrieval)) == prior_attempts
+
+    def test_changed_document_creates_new_historical_snapshot(self, db):
+        source = persist.ensure_source(db, _spec())
+        counters = persist.Counters()
+        old = persist.store_document(db, source, SourceDoc(url="https://source.example/x",
+                                    content=b"old", academic_period="2024"), counters)
+        new = persist.store_document(db, source, SourceDoc(url="https://source.example/x",
+                                    content=b"new", academic_period="2025"), counters)
+        assert old.id != new.id
+        assert old.content_hash != new.content_hash
+        assert old.academic_period == "2024" and new.academic_period == "2025"
+        assert new.last_content_changed_at >= old.last_content_changed_at
 
     def test_binary_excerpts_never_break_the_text_column(self, db):
         source = persist.ensure_source(db, _spec())
@@ -699,6 +877,24 @@ class TestIdentityResolution:
             db, candidate, persist.InstitutionResolver(db))
         assert applied == "created"
 
+    def test_ambiguous_name_suggestions_do_not_choose_an_arbitrary_university(self, db):
+        resolver = persist.InstitutionResolver(db)
+        persist.upsert_institution(db, _institution("Shared Name", identifiers={"ror": "r-a"}), resolver)
+        persist.upsert_institution(db, _institution("Shared Name", identifiers={"ror": "r-b"}), resolver)
+        assert db.scalar(select(func.count()).select_from(University).where(
+            University.canonical_name == "Shared Name")) == 2
+        candidate = _institution("Shared Name", identifiers={}, website=None)
+        assert persist.InstitutionResolver(db).resolve(candidate) == (None, "ambiguous_weak_match")
+
+    def test_conflicting_name_and_domain_hints_remain_ambiguous(self, db):
+        resolver = persist.InstitutionResolver(db)
+        persist.upsert_institution(db, _institution("Alpha College", identifiers={"ror": "r-alpha"},
+                                                    website="https://alpha.example.edu"), resolver)
+        persist.upsert_institution(db, _institution("Beta College", identifiers={"ror": "r-beta"},
+                                                    website="https://beta.example.edu"), resolver)
+        candidate = _institution("Alpha College", identifiers={}, website="https://beta.example.edu")
+        assert persist.InstitutionResolver(db).resolve(candidate) == (None, "ambiguous_weak_match")
+
     def test_synthetic_demo_fixtures_are_excluded_from_matching(self, db):
         demo = db.scalar(select(University).where(
             University.external_identifiers["demo_fixture"].astext.is_not(None)))
@@ -735,6 +931,107 @@ class TestIdentityResolution:
         assert db.scalar(select(func.count()).select_from(University).where(
             University.canonical_name == "Test University")) == 0
 
+    def test_all_strong_identifiers_must_agree(self, db):
+        resolver = persist.InstitutionResolver(db)
+        first, _ = persist.upsert_institution(
+            db, _institution("First University", identifiers={"ror": "ror-1"}), resolver)
+        second, _ = persist.upsert_institution(
+            db, _institution("Second University", identifiers={"ipeds_unitid": "100"}), resolver)
+        candidate = _institution("Incoming", identifiers={"ror": "ror-1",
+                                                            "ipeds_unitid": "100"})
+        assert persist.InstitutionResolver(db).resolve(candidate) == (None, "conflicting_identifiers")
+        with pytest.raises(ValueError, match="conflicting_identifiers"):
+            persist.upsert_institution(db, candidate, persist.InstitutionResolver(db))
+        assert first.id != second.id
+
+    def test_duplicate_legacy_identifier_claims_are_ambiguous(self, db):
+        rows = db.scalars(select(University).where(
+            University.external_identifiers["demo_fixture"].astext.is_not(None))).all()
+        country = rows[0].country_code
+        one = University(canonical_name="Legacy One", slug="legacy-one-identity-test",
+                         country_code=country, external_identifiers={"ror": "duplicate-ror"})
+        two = University(canonical_name="Legacy Two", slug="legacy-two-identity-test",
+                         country_code=country, external_identifiers={"ror": "duplicate-ror"})
+        db.add_all([one, two])
+        db.flush()
+        candidate = _institution("Incoming", identifiers={"ror": "duplicate-ror"})
+        assert persist.InstitutionResolver(db).resolve(candidate) == (None, "ambiguous_identifier")
+
+    def test_identifier_claim_is_source_attributed_and_idempotent(self, db):
+        source = persist.ensure_source(db, _spec(key="claim-source"))
+        document = persist.store_document(db, source,
+            SourceDoc(url="https://example.org/identity", content=b"identity"), persist.Counters())
+        candidate = _institution(identifiers={"ror": " 00ABC "})
+        row, _ = persist.upsert_institution(db, candidate, persist.InstitutionResolver(db),
+                                             source=source, source_document=document)
+        claim = db.scalar(select(InstitutionIdentifier).where(
+            InstitutionIdentifier.university_id == row.id,
+            InstitutionIdentifier.namespace == "ror"))
+        assert claim.source_id == source.id
+        assert claim.source_document_id == document.id
+        assert claim.source_key == "claim-source"
+        assert claim.normalized_value == "00abc"
+        persist.upsert_institution(db, candidate, persist.InstitutionResolver(db),
+                                   source=source, source_document=document)
+        assert db.scalar(select(func.count()).select_from(InstitutionIdentifier).where(
+            InstitutionIdentifier.university_id == row.id,
+            InstitutionIdentifier.namespace == "ror")) == 1
+
+    def test_accepted_authoritative_identifier_is_database_unique(self, db):
+        country = db.scalar(select(University.country_code).limit(1))
+        first = University(canonical_name="Unique Claim One", slug="unique-claim-one",
+                           country_code=country, external_identifiers={})
+        second = University(canonical_name="Unique Claim Two", slug="unique-claim-two",
+                            country_code=country, external_identifiers={})
+        db.add_all([first, second])
+        db.flush()
+        db.add(InstitutionIdentifier(
+            university_id=first.id, source_key="source-a", namespace="ror",
+            identifier_value="ror-unique", normalized_value="ror-unique",
+            scope="institution", claim_status="accepted"))
+        db.flush()
+        with pytest.raises(IntegrityError), db.begin_nested():
+            db.add(InstitutionIdentifier(
+                university_id=second.id, source_key="source-b", namespace="ror",
+                identifier_value="ror-unique", normalized_value="ror-unique",
+                scope="institution", claim_status="accepted"))
+            db.flush()
+
+    def test_legacy_backfill_preserves_duplicate_claims_as_conflicted(self, db):
+        sample = db.scalar(select(University).limit(1))
+        baseline = db.scalar(select(func.count()).select_from(University))
+        rows = [
+            University(canonical_name=f"Legacy Claim {i}", slug=f"legacy-claim-{i}",
+                       country_code=sample.country_code,
+                       external_identifiers={"ror": "duplicate-backfill"})
+            for i in (1, 2)
+        ]
+        db.add_all(rows)
+        db.flush()
+        db.execute(text("""
+            WITH claims AS (
+                SELECT u.id AS university_id, item.key AS namespace,
+                       btrim(item.value) AS identifier_value,
+                       lower(btrim(item.value)) AS normalized_value,
+                       count(*) OVER (PARTITION BY item.key, lower(btrim(item.value))) AS claim_count
+                  FROM universities AS u
+                  CROSS JOIN LATERAL jsonb_each_text(COALESCE(u.external_identifiers, '{}'::jsonb)) AS item
+                 WHERE item.key <> 'demo_fixture' AND btrim(item.value) <> ''
+            )
+            INSERT INTO institution_identifiers
+                (id, university_id, source_key, namespace, identifier_value,
+                 normalized_value, scope, claim_status)
+            SELECT gen_random_uuid(), university_id, 'legacy_jsonb', namespace,
+                   identifier_value, normalized_value, 'institution',
+                   CASE WHEN claim_count > 1 THEN 'conflicted' ELSE 'accepted' END
+              FROM claims
+        """))
+        claims = db.scalars(select(InstitutionIdentifier).where(
+            InstitutionIdentifier.namespace == "ror",
+            InstitutionIdentifier.normalized_value == "duplicate-backfill")).all()
+        assert len(claims) == 2 and {claim.claim_status for claim in claims} == {"conflicted"}
+        assert db.scalar(select(func.count()).select_from(University)) == baseline + 2
+
 
 # -------------------------------------------------------------------- pipeline
 
@@ -758,6 +1055,59 @@ class TestPipeline:
             University.external_identifiers["ror"].astext == "00abc")) == 1
         job = db.get(IngestionJob, summary.job_id)
         assert job.status == "succeeded" and job.records_seen == 1
+        assert job.checkpoint["metrics"]["version"] == 2
+        assert job.checkpoint["metrics"]["institutions"] == {
+            "seen": 1, "created": 1, "updated": 0, "unchanged": 0}
+        assert job.checkpoint["metrics"]["programs"]["seen"] == 0
+        assert job.checkpoint["metrics"]["facts"]["created"] == 0
+        assert job.checkpoint["metrics"]["semantics"]["legacy_records"] == \
+            "institutions_and_programs_combined"
+
+    def test_weak_match_is_queued_without_creating_canonical_university(self, registered, db):
+        spec, adapter = registered
+        persist.upsert_institution(db, _institution("Same University", identifiers={"ror": "first"}),
+                                   persist.InstitutionResolver(db))
+        candidate = _institution("Same University", identifiers={"ror": "second"},
+                                 website="https://another.example.org")
+        adapter.batches = [_batch([candidate], content=b"candidate-review")]
+        summary = run_source("test_source", RunOptions(), db=db)
+        assert summary.status == "partial"
+        assert summary.counters.review == 1
+        assert db.scalar(select(func.count()).select_from(University).where(
+            University.canonical_name == "Same University")) == 1
+        item = db.scalar(select(IngestionJobItem).where(
+            IngestionJobItem.external_key == candidate.external_key))
+        assert item.candidate_payload["identity_review"][0]["code"] == "weak_match"
+        assert item.source_document_id is not None
+        assert db.get(IngestionJob, summary.job_id).status == "partial"
+
+    def test_rolled_back_batch_marks_job_partial_and_continues(self, registered, db, monkeypatch):
+        _spec_value, adapter = registered
+        first = _institution("Rolled Back Batch University", identifiers={"ror": "rollback1"})
+        second = _institution("Committed Batch University", identifiers={"ror": "commit1"})
+        adapter.batches = [_batch([first], content=b"first"), _batch([second], content=b"second")]
+        persist_batch = pipeline._persist_batch
+        calls = 0
+
+        def fail_first_batch(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("simulated batch failure")
+            return persist_batch(*args, **kwargs)
+
+        monkeypatch.setattr(pipeline, "_persist_batch", fail_first_batch)
+        summary = run_source("test_source", RunOptions(), db=db)
+
+        assert summary.status == "partial"
+        assert summary.counters.http_failures == ["batch:RuntimeError"]
+        job = db.get(IngestionJob, summary.job_id)
+        assert job.status == "partial"
+        assert "simulated batch failure" in job.error_summary
+        assert db.scalar(select(func.count()).select_from(University).where(
+            University.canonical_name == "Rolled Back Batch University")) == 0
+        assert db.scalar(select(func.count()).select_from(University).where(
+            University.canonical_name == "Committed Batch University")) == 1
 
     def test_running_twice_is_idempotent(self, registered, db):
         spec, adapter = registered
@@ -805,7 +1155,13 @@ class TestPipeline:
         assert item.status == "rejected" and item.validation_errors
 
     def test_dry_run_writes_nothing(self, registered, db):
-        run_source("test_source", RunOptions(dry_run=True), db=db)
+        jobs_before = db.scalar(select(func.count()).select_from(IngestionJob))
+        sources_before = db.scalar(select(func.count()).select_from(Source))
+        summary = run_source("test_source", RunOptions(dry_run=True), db=db)
+        assert summary.status == "dry_run"
+        assert summary.job_id is None
+        assert db.scalar(select(func.count()).select_from(IngestionJob)) == jobs_before
+        assert db.scalar(select(func.count()).select_from(Source)) == sources_before
         assert db.scalar(select(func.count()).select_from(University).where(
             University.external_identifiers["ror"].astext == "00abc")) == 0
 
@@ -864,15 +1220,27 @@ class TestPipeline:
 
     def test_programs_and_facts_are_persisted_with_their_discipline(self, registered, db):
         spec, adapter = registered
+        # A duplicated display label must not be mapped to one arbitrary field.
+        if db.scalar(select(Field.id).where(Field.display_name == "Computer Science")) is None:
+            db.add(Field(key="computer_science_test_seed", display_name="Computer Science"))
+        db.add(Field(key="computer_science_duplicate", display_name="Computer Science"))
+        db.flush()
         institution = _institution()
         program = CandidateProgram(external_key="p:1", title="MSc Evidence Engineering",
                                    discipline_code="11.0101")
         program.facts = [CandidateFact("awards_conferred", {"count": "12"},
                                        normalized={"count": "12"},
-                                       applicability_key="2023-24")]
-        institution.programs.append(program)
+                                       applicability_key="2023-24",
+                                       applicable_intake_year=2027,
+                                       applicable_intake_term="fall")]
+        name_mapped = CandidateProgram(external_key="p:2", title="MSc Systems",
+                                       discipline_name="Computer Science")
+        unique_mapped = CandidateProgram(external_key="p:3", title="MSc Unique Discipline",
+                                         discipline_name="Unique Test Discipline")
+        institution.programs.extend([program, name_mapped, unique_mapped])
         batch = AdapterBatch(document=SourceDoc(url="u://prog", content=b"p"),
-                             fields=[CandidateField("cip_11", "Computer Science")],
+                             fields=[CandidateField("cip_11", "Computer Science"),
+                                     CandidateField("cip_99", "Unique Test Discipline")],
                              institutions=[institution])
         adapter.batches = [batch]
         summary = run_source("test_source", RunOptions(), db=db)
@@ -880,15 +1248,47 @@ class TestPipeline:
             Program.canonical_name == "MSc Evidence Engineering"))
         assert row is not None and row.publication_status == "candidate"
         assert row.field_id is not None
+        name_mapped_row = db.scalar(select(Program).where(Program.canonical_name == "MSc Systems"))
+        assert name_mapped_row is not None and name_mapped_row.field_id is None
+        unique_mapped_row = db.scalar(select(Program).where(
+            Program.canonical_name == "MSc Unique Discipline"))
+        assert unique_mapped_row is not None and unique_mapped_row.field_id is not None
         assert db.scalar(select(func.count()).select_from(FactRecord).where(
             FactRecord.entity_type == "program", FactRecord.fact_key == "awards_conferred")) == 1
+        applicable_version = db.scalar(select(FactVersion).where(
+            FactVersion.fact_record_id == db.scalar(select(FactRecord.id).where(
+                FactRecord.entity_type == "program", FactRecord.fact_key == "awards_conferred"))))
+        assert applicable_version.applicable_intake_year == 2027
+        assert applicable_version.applicable_intake_term == "fall"
         assert summary.counters.rejected == 0
+
+    def test_source_program_key_is_idempotent_and_similar_titles_remain_distinct(self, registered, db):
+        _spec_value, adapter = registered
+        first = _institution("Program Identity University", identifiers={"ror": "program-ror"})
+        first.programs = [CandidateProgram(external_key="official:msc-1", title="MSc Data Science")]
+        second = _institution("Program Identity University", identifiers={"ror": "program-ror"})
+        second.programs = [CandidateProgram(external_key="official:msc-2", title="MSc Data Science")]
+        adapter.batches = [_batch([first, second], content=b"two-distinct-programmes")]
+        summary = run_source("test_source", RunOptions(), db=db)
+        assert summary.status == "succeeded"
+        count = select(func.count()).select_from(Program).join(
+            University, University.id == Program.university_id).where(
+                University.canonical_name == "Program Identity University",
+                Program.canonical_name == "MSc Data Science")
+        assert db.scalar(count) == 2
+        adapter.batches = [_batch([first, second], content=b"two-distinct-programmes")]
+        run_source("test_source", RunOptions(), db=db)
+        assert db.scalar(count) == 2
 
 
 class TestRefreshScheduling:
     def test_due_refreshes_are_queued_once_per_source(self, registered, db):
         spec, adapter = registered
         spec.refresh_interval_hours = 1
+        source = db.scalar(select(Source).where(Source.metadata_json["adapter_key"].astext == "test_source"))
+        source.metadata_json = {**source.metadata_json, "refresh_schedule": {
+            "approved": True, "approval_reference": "isolated test authorization", "max_records": 5}}
+        db.flush()
         queued = enqueue_due_refreshes(db)
         assert len(queued) == 1
         assert enqueue_due_refreshes(db) == []   # already queued: no duplicates
@@ -908,6 +1308,12 @@ class TestRefreshScheduling:
         for spec in all_specs().values():
             if not spec.enabled or spec.allowed_use_policy != "public_dataset":
                 assert spec.integration_status != "active" or not spec.enabled
+
+    def test_bounded_or_unapproved_sources_remain_manual(self):
+        specs = all_specs()
+        for key in ("ipeds_hd", "ipeds_ic", "duo_rio_masters", "fr_monmaster"):
+            assert specs[key].requires_explicit_limit is True
+            assert specs[key].refresh_interval_hours is None
 
 
 class TestRegistry:

@@ -76,8 +76,19 @@ class SourceDocument(Base, UUIDPk):
     title: Mapped[str | None] = mapped_column(String(300))
     document_type: Mapped[str | None] = mapped_column(String(60))
     content_hash: Mapped[str | None] = mapped_column(String(64))
+    # Freshness columns were added after the first production schema revision.
+    # Keep them deferred so read-only catalogue queries remain compatible while
+    # an installation is awaiting the additive migration approval checkpoint.
+    source_published_at: Mapped[date | None] = mapped_column(Date, deferred=True)
+    academic_period: Mapped[str | None] = mapped_column(String(32), deferred=True)
     retrieved_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, deferred=True
+    )
+    last_content_changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, deferred=True
     )
     http_status: Mapped[int | None] = mapped_column(SmallInteger)
     etag: Mapped[str | None] = mapped_column(String(200))
@@ -89,6 +100,36 @@ class SourceDocument(Base, UUIDPk):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class SourceDocumentRetrieval(Base, UUIDPk):
+    """Append-only record of each fetch/check, including unchanged and failed attempts."""
+
+    __tablename__ = "source_document_retrievals"
+    __table_args__ = (
+        Index("ix_source_document_retrievals_source_time", "source_id", "attempted_at"),
+        Index("ix_source_document_retrievals_document_time", "source_document_id", "attempted_at"),
+        CheckConstraint("outcome IN ('fetched', 'not_modified', 'failed')",
+                        name="ck_source_document_retrievals_outcome"),
+    )
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("source_documents.id", ondelete="RESTRICT")
+    )
+    canonical_url: Mapped[str] = mapped_column(Text, nullable=False)
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    outcome: Mapped[str] = mapped_column(String(24), nullable=False)
+    http_status: Mapped[int | None] = mapped_column(SmallInteger)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    content_hash: Mapped[str | None] = mapped_column(String(64))
+    etag: Mapped[str | None] = mapped_column(String(200))
+    last_modified: Mapped[str | None] = mapped_column(String(200))
+    error_summary: Mapped[str | None] = mapped_column(Text)
 
 
 class FactRecord(Base, UUIDPk, TimestampMixin):

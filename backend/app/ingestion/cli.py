@@ -13,7 +13,7 @@ import json
 import logging
 import sys
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.db.session import SessionLocal
 from app.ingestion import run_source
@@ -35,6 +35,16 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message
 
 def _print(payload) -> None:
     print(json.dumps(payload, indent=2, default=str))
+
+
+def _is_ingested_institution():
+    """Return the JSON identifier predicate used for real source-backed institutions."""
+    return or_(
+        University.external_identifiers["ror"].astext.is_not(None),
+        University.external_identifiers["ipeds_unitid"].astext.is_not(None),
+        University.external_identifiers["uai"].astext.is_not(None),
+        University.external_identifiers["rio_provider_id"].astext.is_not(None),
+    )
 
 
 def cmd_sources(args) -> int:
@@ -84,9 +94,11 @@ def cmd_set_enabled(args) -> int:
 def cmd_run(args) -> int:
     options = RunOptions(dry_run=args.dry_run, max_records=args.limit,
                          max_pages=args.max_pages, countries=args.country,
-                         offline=args.offline, record_all_items=args.record_all_items)
-    _print(run_source(args.source_key, options).as_dict())
-    return 0
+                         offline=args.offline, record_all_items=args.record_all_items,
+                         query=args.query)
+    summary = run_source(args.source_key, options)
+    _print(summary.as_dict())
+    return 1 if summary.status == "failed" else 0
 
 
 def cmd_run_all(args) -> int:
@@ -117,10 +129,9 @@ def cmd_verify(args) -> int:
         def count(model, *where):
             return db.scalar(select(func.count()).select_from(model).where(*where)) or 0
 
-        is_demo = University.external_identifiers["demo_fixture"].astext.is_not(None)
         is_ror = University.external_identifiers["ror"].astext.is_not(None)
         is_ipeds = University.external_identifiers["ipeds_unitid"].astext.is_not(None)
-        is_real = is_ror | is_ipeds
+        is_real = _is_ingested_institution()
         ingested_ids = select(University.id).where(is_real)
 
         by_status = db.execute(
@@ -150,7 +161,8 @@ def cmd_verify(args) -> int:
         last_success = db.scalar(
             select(func.max(IngestionJob.finished_at)).where(IngestionJob.status == "succeeded"))
         report = {
-            "sources_registered": count(Source),
+            "registered_connectors": len(all_specs()),
+            "source_rows_in_database": count(Source),
             "institutions_total": count(University),
             "institutions_from_ingestion": (
                 db.scalar(select(func.count()).select_from(University).where(is_real)) or 0),
@@ -200,6 +212,7 @@ def main(argv=None) -> int:
     p.add_argument("--country", action="append", dest="country")
     p.add_argument("--offline", action="store_true", help="use cached downloads only")
     p.add_argument("--record-all-items", action="store_true")
+    p.add_argument("--query", help="exact source query supported by selected adapter")
     p.set_defaults(fn=cmd_run)
 
     p = sub.add_parser("run-all", help="run every enabled connector")
