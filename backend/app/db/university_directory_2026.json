@@ -1,0 +1,3252 @@
+{
+  "source": "World University Directory — Bachelors and Masters (user-provided PDF)",
+  "reference_date": "2026-10-22",
+  "note": "Illustrative institutional names only. Accreditation, degree offerings, tuition, admissions, and recognition NOT independently verified.",
+  "institutions": [
+    {
+      "name": "University of Algiers 1",
+      "country_code": "DZ",
+      "country_name": "Algeria"
+    },
+    {
+      "name": "University of Science and Technology Houari Boumediene",
+      "country_code": "DZ",
+      "country_name": "Algeria"
+    },
+    {
+      "name": "University of Oran 1",
+      "country_code": "DZ",
+      "country_name": "Algeria"
+    },
+    {
+      "name": "University of Buenos Aires",
+      "country_code": "AR",
+      "country_name": "Argentina"
+    },
+    {
+      "name": "National University of La Plata",
+      "country_code": "AR",
+      "country_name": "Argentina"
+    },
+    {
+      "name": "National University of Córdoba",
+      "country_code": "AR",
+      "country_name": "Argentina"
+    },
+    {
+      "name": "Austral University",
+      "country_code": "AR",
+      "country_name": "Argentina"
+    },
+    {
+      "name": "Torcuato Di Tella University",
+      "country_code": "AR",
+      "country_name": "Argentina"
+    },
+    {
+      "name": "National University of Rosario",
+      "country_code": "AR",
+      "country_name": "Argentina"
+    },
+    {
+      "name": "National University of Cuyo",
+      "country_code": "AR",
+      "country_name": "Argentina"
+    },
+    {
+      "name": "Australian National University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Melbourne",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Sydney",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of New South Wales",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Monash University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Queensland",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Western Australia",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Adelaide",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Technology Sydney",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "RMIT University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Deakin University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Macquarie University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Queensland University of Technology",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Curtin University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Griffith University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Newcastle",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Wollongong",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "La Trobe University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Swinburne University of Technology",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "Flinders University",
+      "country_code": "AU",
+      "country_name": "Australia"
+    },
+    {
+      "name": "University of Vienna",
+      "country_code": "AT",
+      "country_name": "Austria"
+    },
+    {
+      "name": "Vienna University of Technology",
+      "country_code": "AT",
+      "country_name": "Austria"
+    },
+    {
+      "name": "Graz University of Technology",
+      "country_code": "AT",
+      "country_name": "Austria"
+    },
+    {
+      "name": "University of Innsbruck",
+      "country_code": "AT",
+      "country_name": "Austria"
+    },
+    {
+      "name": "Johannes Kepler University Linz",
+      "country_code": "AT",
+      "country_name": "Austria"
+    },
+    {
+      "name": "University of Graz",
+      "country_code": "AT",
+      "country_name": "Austria"
+    },
+    {
+      "name": "University of Bahrain",
+      "country_code": "BH",
+      "country_name": "Bahrain"
+    },
+    {
+      "name": "Arabian Gulf University",
+      "country_code": "BH",
+      "country_name": "Bahrain"
+    },
+    {
+      "name": "Ahlia University",
+      "country_code": "BH",
+      "country_name": "Bahrain"
+    },
+    {
+      "name": "University of Dhaka",
+      "country_code": "BD",
+      "country_name": "Bangladesh"
+    },
+    {
+      "name": "Bangladesh University of Engineering and Technology",
+      "country_code": "BD",
+      "country_name": "Bangladesh"
+    },
+    {
+      "name": "BRAC University",
+      "country_code": "BD",
+      "country_name": "Bangladesh"
+    },
+    {
+      "name": "North South University",
+      "country_code": "BD",
+      "country_name": "Bangladesh"
+    },
+    {
+      "name": "University of Chittagong",
+      "country_code": "BD",
+      "country_name": "Bangladesh"
+    },
+    {
+      "name": "Jahangirnagar University",
+      "country_code": "BD",
+      "country_name": "Bangladesh"
+    },
+    {
+      "name": "KU Leuven",
+      "country_code": "BE",
+      "country_name": "Belgium"
+    },
+    {
+      "name": "Ghent University",
+      "country_code": "BE",
+      "country_name": "Belgium"
+    },
+    {
+      "name": "Université catholique de Louvain",
+      "country_code": "BE",
+      "country_name": "Belgium"
+    },
+    {
+      "name": "Université libre de Bruxelles",
+      "country_code": "BE",
+      "country_name": "Belgium"
+    },
+    {
+      "name": "University of Antwerp",
+      "country_code": "BE",
+      "country_name": "Belgium"
+    },
+    {
+      "name": "Vrije Universiteit Brussel",
+      "country_code": "BE",
+      "country_name": "Belgium"
+    },
+    {
+      "name": "University of Liège",
+      "country_code": "BE",
+      "country_name": "Belgium"
+    },
+    {
+      "name": "Higher University of San Andrés",
+      "country_code": "BO",
+      "country_name": "Bolivia"
+    },
+    {
+      "name": "Gabriel René Moreno Autonomous University",
+      "country_code": "BO",
+      "country_name": "Bolivia"
+    },
+    {
+      "name": "Bolivian Catholic University",
+      "country_code": "BO",
+      "country_name": "Bolivia"
+    },
+    {
+      "name": "University of Botswana",
+      "country_code": "BW",
+      "country_name": "Botswana"
+    },
+    {
+      "name": "Botswana International University of Science and Technology",
+      "country_code": "BW",
+      "country_name": "Botswana"
+    },
+    {
+      "name": "University of São Paulo",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "University of Campinas",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "Federal University of Rio de Janeiro",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "Federal University of Minas Gerais",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "Federal University of Rio Grande do Sul",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "São Paulo State University",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "Federal University of Paraná",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "University of Brasília",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "Pontifical Catholic University of Rio de Janeiro",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "Federal University of Santa Catarina",
+      "country_code": "BR",
+      "country_name": "Brazil"
+    },
+    {
+      "name": "Royal University of Phnom Penh",
+      "country_code": "KH",
+      "country_name": "Cambodia"
+    },
+    {
+      "name": "Institute of Technology of Cambodia",
+      "country_code": "KH",
+      "country_name": "Cambodia"
+    },
+    {
+      "name": "Royal University of Law and Economics",
+      "country_code": "KH",
+      "country_name": "Cambodia"
+    },
+    {
+      "name": "University of Yaoundé I",
+      "country_code": "CM",
+      "country_name": "Cameroon"
+    },
+    {
+      "name": "University of Douala",
+      "country_code": "CM",
+      "country_name": "Cameroon"
+    },
+    {
+      "name": "University of Buea",
+      "country_code": "CM",
+      "country_name": "Cameroon"
+    },
+    {
+      "name": "University of Toronto",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of British Columbia",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "McGill University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Alberta",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Waterloo",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "McMaster University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Western University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Queen's University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Ottawa",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Université de Montréal",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Calgary",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Simon Fraser University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Victoria",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "York University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Dalhousie University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Manitoba",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Saskatchewan",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Concordia University",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Université Laval",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "University of Guelph",
+      "country_code": "CA",
+      "country_name": "Canada"
+    },
+    {
+      "name": "Pontifical Catholic University of Chile",
+      "country_code": "CL",
+      "country_name": "Chile"
+    },
+    {
+      "name": "University of Chile",
+      "country_code": "CL",
+      "country_name": "Chile"
+    },
+    {
+      "name": "University of Concepción",
+      "country_code": "CL",
+      "country_name": "Chile"
+    },
+    {
+      "name": "Federico Santa María Technical University",
+      "country_code": "CL",
+      "country_name": "Chile"
+    },
+    {
+      "name": "Adolfo Ibáñez University",
+      "country_code": "CL",
+      "country_name": "Chile"
+    },
+    {
+      "name": "Peking University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Tsinghua University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Fudan University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Shanghai Jiao Tong University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Zhejiang University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "University of Science and Technology of China",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Nanjing University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Wuhan University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Sun Yat-sen University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Harbin Institute of Technology",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Xi'an Jiaotong University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Huazhong University of Science and Technology",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Beijing Normal University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Tongji University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Sichuan University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Tianjin University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Renmin University of China",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Xiamen University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Nankai University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "Shandong University",
+      "country_code": "CN",
+      "country_name": "China"
+    },
+    {
+      "name": "University of the Andes (Colombia)",
+      "country_code": "CO",
+      "country_name": "Colombia"
+    },
+    {
+      "name": "National University of Colombia",
+      "country_code": "CO",
+      "country_name": "Colombia"
+    },
+    {
+      "name": "Pontifical Javeriana University",
+      "country_code": "CO",
+      "country_name": "Colombia"
+    },
+    {
+      "name": "University of Antioquia",
+      "country_code": "CO",
+      "country_name": "Colombia"
+    },
+    {
+      "name": "University of the Rosario",
+      "country_code": "CO",
+      "country_name": "Colombia"
+    },
+    {
+      "name": "University of Costa Rica",
+      "country_code": "CR",
+      "country_name": "Costa Rica"
+    },
+    {
+      "name": "National University of Costa Rica",
+      "country_code": "CR",
+      "country_name": "Costa Rica"
+    },
+    {
+      "name": "Costa Rica Institute of Technology",
+      "country_code": "CR",
+      "country_name": "Costa Rica"
+    },
+    {
+      "name": "University of Zagreb",
+      "country_code": "HR",
+      "country_name": "Croatia"
+    },
+    {
+      "name": "University of Split",
+      "country_code": "HR",
+      "country_name": "Croatia"
+    },
+    {
+      "name": "University of Rijeka",
+      "country_code": "HR",
+      "country_name": "Croatia"
+    },
+    {
+      "name": "University of Cyprus",
+      "country_code": "CY",
+      "country_name": "Cyprus"
+    },
+    {
+      "name": "Cyprus University of Technology",
+      "country_code": "CY",
+      "country_name": "Cyprus"
+    },
+    {
+      "name": "University of Nicosia",
+      "country_code": "CY",
+      "country_name": "Cyprus"
+    },
+    {
+      "name": "Charles University",
+      "country_code": "CZ",
+      "country_name": "Czechia"
+    },
+    {
+      "name": "Czech Technical University in Prague",
+      "country_code": "CZ",
+      "country_name": "Czechia"
+    },
+    {
+      "name": "Masaryk University",
+      "country_code": "CZ",
+      "country_name": "Czechia"
+    },
+    {
+      "name": "Brno University of Technology",
+      "country_code": "CZ",
+      "country_name": "Czechia"
+    },
+    {
+      "name": "Palacký University Olomouc",
+      "country_code": "CZ",
+      "country_name": "Czechia"
+    },
+    {
+      "name": "University of Copenhagen",
+      "country_code": "DK",
+      "country_name": "Denmark"
+    },
+    {
+      "name": "Technical University of Denmark",
+      "country_code": "DK",
+      "country_name": "Denmark"
+    },
+    {
+      "name": "Aarhus University",
+      "country_code": "DK",
+      "country_name": "Denmark"
+    },
+    {
+      "name": "Aalborg University",
+      "country_code": "DK",
+      "country_name": "Denmark"
+    },
+    {
+      "name": "University of Southern Denmark",
+      "country_code": "DK",
+      "country_name": "Denmark"
+    },
+    {
+      "name": "Autonomous University of Santo Domingo",
+      "country_code": "DO",
+      "country_name": "Dominican Republic"
+    },
+    {
+      "name": "Pontificia Universidad Católica Madre y Maestra",
+      "country_code": "DO",
+      "country_name": "Dominican Republic"
+    },
+    {
+      "name": "San Francisco de Quito University",
+      "country_code": "EC",
+      "country_name": "Ecuador"
+    },
+    {
+      "name": "Pontifical Catholic University of Ecuador",
+      "country_code": "EC",
+      "country_name": "Ecuador"
+    },
+    {
+      "name": "Escuela Politécnica Nacional",
+      "country_code": "EC",
+      "country_name": "Ecuador"
+    },
+    {
+      "name": "Cairo University",
+      "country_code": "EG",
+      "country_name": "Egypt"
+    },
+    {
+      "name": "Ain Shams University",
+      "country_code": "EG",
+      "country_name": "Egypt"
+    },
+    {
+      "name": "Alexandria University",
+      "country_code": "EG",
+      "country_name": "Egypt"
+    },
+    {
+      "name": "American University in Cairo",
+      "country_code": "EG",
+      "country_name": "Egypt"
+    },
+    {
+      "name": "Mansoura University",
+      "country_code": "EG",
+      "country_name": "Egypt"
+    },
+    {
+      "name": "Assiut University",
+      "country_code": "EG",
+      "country_name": "Egypt"
+    },
+    {
+      "name": "University of Tartu",
+      "country_code": "EE",
+      "country_name": "Estonia"
+    },
+    {
+      "name": "Tallinn University of Technology",
+      "country_code": "EE",
+      "country_name": "Estonia"
+    },
+    {
+      "name": "Tallinn University",
+      "country_code": "EE",
+      "country_name": "Estonia"
+    },
+    {
+      "name": "Addis Ababa University",
+      "country_code": "ET",
+      "country_name": "Ethiopia"
+    },
+    {
+      "name": "Jimma University",
+      "country_code": "ET",
+      "country_name": "Ethiopia"
+    },
+    {
+      "name": "Bahir Dar University",
+      "country_code": "ET",
+      "country_name": "Ethiopia"
+    },
+    {
+      "name": "University of Helsinki",
+      "country_code": "FI",
+      "country_name": "Finland"
+    },
+    {
+      "name": "Aalto University",
+      "country_code": "FI",
+      "country_name": "Finland"
+    },
+    {
+      "name": "University of Turku",
+      "country_code": "FI",
+      "country_name": "Finland"
+    },
+    {
+      "name": "Tampere University",
+      "country_code": "FI",
+      "country_name": "Finland"
+    },
+    {
+      "name": "University of Oulu",
+      "country_code": "FI",
+      "country_name": "Finland"
+    },
+    {
+      "name": "University of Jyväskylä",
+      "country_code": "FI",
+      "country_name": "Finland"
+    },
+    {
+      "name": "Sorbonne University",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Université Paris-Saclay",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Université Paris Cité",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "École Polytechnique",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "PSL University",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Sciences Po",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Université Grenoble Alpes",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Université de Strasbourg",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Aix-Marseille University",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "University of Bordeaux",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Université de Lille",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Université de Montpellier",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "INSA Lyon",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "École Normale Supérieure de Lyon",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Toulouse School of Economics",
+      "country_code": "FR",
+      "country_name": "France"
+    },
+    {
+      "name": "Tbilisi State University",
+      "country_code": "GE",
+      "country_name": "Georgia"
+    },
+    {
+      "name": "Georgian Technical University",
+      "country_code": "GE",
+      "country_name": "Georgia"
+    },
+    {
+      "name": "Ilia State University",
+      "country_code": "GE",
+      "country_name": "Georgia"
+    },
+    {
+      "name": "Technical University of Munich",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "Ludwig Maximilian University of Munich",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "Heidelberg University",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "RWTH Aachen University",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "Humboldt University of Berlin",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "Free University of Berlin",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "Technical University of Berlin",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Freiburg",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Tübingen",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "Karlsruhe Institute of Technology",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Bonn",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Hamburg",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Göttingen",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Cologne",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "TU Dresden",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Mannheim",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Stuttgart",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Münster",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Frankfurt",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "Leipzig University",
+      "country_code": "DE",
+      "country_name": "Germany"
+    },
+    {
+      "name": "University of Ghana",
+      "country_code": "GH",
+      "country_name": "Ghana"
+    },
+    {
+      "name": "Kwame Nkrumah University of Science and Technology",
+      "country_code": "GH",
+      "country_name": "Ghana"
+    },
+    {
+      "name": "University of Cape Coast",
+      "country_code": "GH",
+      "country_name": "Ghana"
+    },
+    {
+      "name": "Ashesi University",
+      "country_code": "GH",
+      "country_name": "Ghana"
+    },
+    {
+      "name": "National and Kapodistrian University of Athens",
+      "country_code": "GR",
+      "country_name": "Greece"
+    },
+    {
+      "name": "Aristotle University of Thessaloniki",
+      "country_code": "GR",
+      "country_name": "Greece"
+    },
+    {
+      "name": "National Technical University of Athens",
+      "country_code": "GR",
+      "country_name": "Greece"
+    },
+    {
+      "name": "University of Patras",
+      "country_code": "GR",
+      "country_name": "Greece"
+    },
+    {
+      "name": "Athens University of Economics and Business",
+      "country_code": "GR",
+      "country_name": "Greece"
+    },
+    {
+      "name": "University of Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong"
+    },
+    {
+      "name": "Chinese University of Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong"
+    },
+    {
+      "name": "Hong Kong University of Science and Technology",
+      "country_code": "HK",
+      "country_name": "Hong Kong"
+    },
+    {
+      "name": "City University of Hong Kong",
+      "country_code": "HK",
+      "country_name": "Hong Kong"
+    },
+    {
+      "name": "Hong Kong Polytechnic University",
+      "country_code": "HK",
+      "country_name": "Hong Kong"
+    },
+    {
+      "name": "Hong Kong Baptist University",
+      "country_code": "HK",
+      "country_name": "Hong Kong"
+    },
+    {
+      "name": "Lingnan University",
+      "country_code": "HK",
+      "country_name": "Hong Kong"
+    },
+    {
+      "name": "Eötvös Loránd University",
+      "country_code": "HU",
+      "country_name": "Hungary"
+    },
+    {
+      "name": "Budapest University of Technology and Economics",
+      "country_code": "HU",
+      "country_name": "Hungary"
+    },
+    {
+      "name": "University of Szeged",
+      "country_code": "HU",
+      "country_name": "Hungary"
+    },
+    {
+      "name": "University of Debrecen",
+      "country_code": "HU",
+      "country_name": "Hungary"
+    },
+    {
+      "name": "University of Iceland",
+      "country_code": "IS",
+      "country_name": "Iceland"
+    },
+    {
+      "name": "Reykjavik University",
+      "country_code": "IS",
+      "country_name": "Iceland"
+    },
+    {
+      "name": "University of Akureyri",
+      "country_code": "IS",
+      "country_name": "Iceland"
+    },
+    {
+      "name": "Indian Institute of Science",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Indian Institute of Technology Bombay",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Indian Institute of Technology Delhi",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Indian Institute of Technology Madras",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Indian Institute of Technology Kanpur",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Indian Institute of Technology Kharagpur",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Indian Institute of Technology Roorkee",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Indian Institute of Technology Guwahati",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "University of Delhi",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Jawaharlal Nehru University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "University of Mumbai",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "University of Calcutta",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "University of Hyderabad",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Anna University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Banaras Hindu University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Aligarh Muslim University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Jadavpur University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Vellore Institute of Technology",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Manipal Academy of Higher Education",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Amrita Vishwa Vidyapeetham",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Savitribai Phule Pune University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Birla Institute of Technology and Science Pilani",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Christ University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "Ashoka University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "O.P. Jindal Global University",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "A. P. Shah Institute of Technology (APSIT), Thane",
+      "country_code": "IN",
+      "country_name": "India"
+    },
+    {
+      "name": "University of Indonesia",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "Gadjah Mada University",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "Bandung Institute of Technology",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "Airlangga University",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "Bogor Agricultural University",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "Diponegoro University",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "Sepuluh Nopember Institute of Technology",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "Bina Nusantara University",
+      "country_code": "ID",
+      "country_name": "Indonesia"
+    },
+    {
+      "name": "University of Tehran",
+      "country_code": "IR",
+      "country_name": "Iran"
+    },
+    {
+      "name": "Sharif University of Technology",
+      "country_code": "IR",
+      "country_name": "Iran"
+    },
+    {
+      "name": "Amirkabir University of Technology",
+      "country_code": "IR",
+      "country_name": "Iran"
+    },
+    {
+      "name": "Iran University of Science and Technology",
+      "country_code": "IR",
+      "country_name": "Iran"
+    },
+    {
+      "name": "Shiraz University",
+      "country_code": "IR",
+      "country_name": "Iran"
+    },
+    {
+      "name": "Isfahan University of Technology",
+      "country_code": "IR",
+      "country_name": "Iran"
+    },
+    {
+      "name": "Ferdowsi University of Mashhad",
+      "country_code": "IR",
+      "country_name": "Iran"
+    },
+    {
+      "name": "Trinity College Dublin",
+      "country_code": "IE",
+      "country_name": "Ireland"
+    },
+    {
+      "name": "University College Dublin",
+      "country_code": "IE",
+      "country_name": "Ireland"
+    },
+    {
+      "name": "University of Galway",
+      "country_code": "IE",
+      "country_name": "Ireland"
+    },
+    {
+      "name": "University College Cork",
+      "country_code": "IE",
+      "country_name": "Ireland"
+    },
+    {
+      "name": "University of Limerick",
+      "country_code": "IE",
+      "country_name": "Ireland"
+    },
+    {
+      "name": "Dublin City University",
+      "country_code": "IE",
+      "country_name": "Ireland"
+    },
+    {
+      "name": "Hebrew University of Jerusalem",
+      "country_code": "IL",
+      "country_name": "Israel"
+    },
+    {
+      "name": "Tel Aviv University",
+      "country_code": "IL",
+      "country_name": "Israel"
+    },
+    {
+      "name": "Technion - Israel Institute of Technology",
+      "country_code": "IL",
+      "country_name": "Israel"
+    },
+    {
+      "name": "Weizmann Institute of Science",
+      "country_code": "IL",
+      "country_name": "Israel"
+    },
+    {
+      "name": "Ben-Gurion University of the Negev",
+      "country_code": "IL",
+      "country_name": "Israel"
+    },
+    {
+      "name": "Bar-Ilan University",
+      "country_code": "IL",
+      "country_name": "Israel"
+    },
+    {
+      "name": "University of Bologna",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "Sapienza University of Rome",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "Politecnico di Milano",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "University of Padua",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "University of Milan",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "University of Pisa",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "University of Florence",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "University of Naples Federico II",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "Politecnico di Torino",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "Bocconi University",
+      "country_code": "IT",
+      "country_name": "Italy"
+    },
+    {
+      "name": "University of Tokyo",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Kyoto University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Osaka University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Tohoku University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Nagoya University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Kyushu University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Hokkaido University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Tokyo Institute of Technology",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Keio University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Waseda University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "University of Tsukuba",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Hiroshima University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Kobe University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Chiba University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "Sophia University",
+      "country_code": "JP",
+      "country_name": "Japan"
+    },
+    {
+      "name": "University of Jordan",
+      "country_code": "JO",
+      "country_name": "Jordan"
+    },
+    {
+      "name": "Jordan University of Science and Technology",
+      "country_code": "JO",
+      "country_name": "Jordan"
+    },
+    {
+      "name": "German Jordanian University",
+      "country_code": "JO",
+      "country_name": "Jordan"
+    },
+    {
+      "name": "Yarmouk University",
+      "country_code": "JO",
+      "country_name": "Jordan"
+    },
+    {
+      "name": "Princess Sumaya University for Technology",
+      "country_code": "JO",
+      "country_name": "Jordan"
+    },
+    {
+      "name": "Al-Farabi Kazakh National University",
+      "country_code": "KZ",
+      "country_name": "Kazakhstan"
+    },
+    {
+      "name": "Nazarbayev University",
+      "country_code": "KZ",
+      "country_name": "Kazakhstan"
+    },
+    {
+      "name": "L. N. Gumilyov Eurasian National University",
+      "country_code": "KZ",
+      "country_name": "Kazakhstan"
+    },
+    {
+      "name": "University of Nairobi",
+      "country_code": "KE",
+      "country_name": "Kenya"
+    },
+    {
+      "name": "Kenyatta University",
+      "country_code": "KE",
+      "country_name": "Kenya"
+    },
+    {
+      "name": "Strathmore University",
+      "country_code": "KE",
+      "country_name": "Kenya"
+    },
+    {
+      "name": "Jomo Kenyatta University of Agriculture and Technology",
+      "country_code": "KE",
+      "country_name": "Kenya"
+    },
+    {
+      "name": "Kuwait University",
+      "country_code": "KW",
+      "country_name": "Kuwait"
+    },
+    {
+      "name": "Gulf University for Science and Technology",
+      "country_code": "KW",
+      "country_name": "Kuwait"
+    },
+    {
+      "name": "University of Latvia",
+      "country_code": "LV",
+      "country_name": "Latvia"
+    },
+    {
+      "name": "Riga Technical University",
+      "country_code": "LV",
+      "country_name": "Latvia"
+    },
+    {
+      "name": "Riga Stradiņš University",
+      "country_code": "LV",
+      "country_name": "Latvia"
+    },
+    {
+      "name": "American University of Beirut",
+      "country_code": "LB",
+      "country_name": "Lebanon"
+    },
+    {
+      "name": "Lebanese American University",
+      "country_code": "LB",
+      "country_name": "Lebanon"
+    },
+    {
+      "name": "Université Saint-Joseph de Beyrouth",
+      "country_code": "LB",
+      "country_name": "Lebanon"
+    },
+    {
+      "name": "Lebanese University",
+      "country_code": "LB",
+      "country_name": "Lebanon"
+    },
+    {
+      "name": "Vilnius University",
+      "country_code": "LT",
+      "country_name": "Lithuania"
+    },
+    {
+      "name": "Kaunas University of Technology",
+      "country_code": "LT",
+      "country_name": "Lithuania"
+    },
+    {
+      "name": "Vytautas Magnus University",
+      "country_code": "LT",
+      "country_name": "Lithuania"
+    },
+    {
+      "name": "University of Luxembourg",
+      "country_code": "LU",
+      "country_name": "Luxembourg"
+    },
+    {
+      "name": "University of Malaya",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "Universiti Putra Malaysia",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "Universiti Kebangsaan Malaysia",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "Universiti Sains Malaysia",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "Universiti Teknologi Malaysia",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "Universiti Teknologi PETRONAS",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "Taylor's University",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "UCSI University",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "International Islamic University Malaysia",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "Multimedia University",
+      "country_code": "MY",
+      "country_name": "Malaysia"
+    },
+    {
+      "name": "University of Malta",
+      "country_code": "MT",
+      "country_name": "Malta"
+    },
+    {
+      "name": "University of Mauritius",
+      "country_code": "MU",
+      "country_name": "Mauritius"
+    },
+    {
+      "name": "University of Technology Mauritius",
+      "country_code": "MU",
+      "country_name": "Mauritius"
+    },
+    {
+      "name": "National Autonomous University of Mexico",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "Tecnológico de Monterrey",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "Metropolitan Autonomous University",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "National Polytechnic Institute",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "University of Guadalajara",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "Autonomous University of Nuevo León",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "Ibero-American University",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "Benemérita Universidad Autónoma de Puebla",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "Universidad de las Américas Puebla",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "Autonomous University of the State of Mexico",
+      "country_code": "MX",
+      "country_name": "Mexico"
+    },
+    {
+      "name": "National University of Mongolia",
+      "country_code": "MN",
+      "country_name": "Mongolia"
+    },
+    {
+      "name": "Mongolian University of Science and Technology",
+      "country_code": "MN",
+      "country_name": "Mongolia"
+    },
+    {
+      "name": "Mohammed V University",
+      "country_code": "MA",
+      "country_name": "Morocco"
+    },
+    {
+      "name": "Cadi Ayyad University",
+      "country_code": "MA",
+      "country_name": "Morocco"
+    },
+    {
+      "name": "Hassan II University of Casablanca",
+      "country_code": "MA",
+      "country_name": "Morocco"
+    },
+    {
+      "name": "Al Akhawayn University",
+      "country_code": "MA",
+      "country_name": "Morocco"
+    },
+    {
+      "name": "University of Yangon",
+      "country_code": "MM",
+      "country_name": "Myanmar"
+    },
+    {
+      "name": "University of Mandalay",
+      "country_code": "MM",
+      "country_name": "Myanmar"
+    },
+    {
+      "name": "Yangon Technological University",
+      "country_code": "MM",
+      "country_name": "Myanmar"
+    },
+    {
+      "name": "University of Namibia",
+      "country_code": "NA",
+      "country_name": "Namibia"
+    },
+    {
+      "name": "Namibia University of Science and Technology",
+      "country_code": "NA",
+      "country_name": "Namibia"
+    },
+    {
+      "name": "Tribhuvan University",
+      "country_code": "NP",
+      "country_name": "Nepal"
+    },
+    {
+      "name": "Kathmandu University",
+      "country_code": "NP",
+      "country_name": "Nepal"
+    },
+    {
+      "name": "Pokhara University",
+      "country_code": "NP",
+      "country_name": "Nepal"
+    },
+    {
+      "name": "Purbanchal University",
+      "country_code": "NP",
+      "country_name": "Nepal"
+    },
+    {
+      "name": "Agriculture and Forestry University",
+      "country_code": "NP",
+      "country_name": "Nepal"
+    },
+    {
+      "name": "University of Amsterdam",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Delft University of Technology",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Utrecht University",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Leiden University",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Erasmus University Rotterdam",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Eindhoven University of Technology",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Wageningen University & Research",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "University of Groningen",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Radboud University",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "Maastricht University",
+      "country_code": "NL",
+      "country_name": "Netherlands"
+    },
+    {
+      "name": "University of Auckland",
+      "country_code": "NZ",
+      "country_name": "New Zealand"
+    },
+    {
+      "name": "University of Otago",
+      "country_code": "NZ",
+      "country_name": "New Zealand"
+    },
+    {
+      "name": "Victoria University of Wellington",
+      "country_code": "NZ",
+      "country_name": "New Zealand"
+    },
+    {
+      "name": "University of Canterbury",
+      "country_code": "NZ",
+      "country_name": "New Zealand"
+    },
+    {
+      "name": "Massey University",
+      "country_code": "NZ",
+      "country_name": "New Zealand"
+    },
+    {
+      "name": "University of Waikato",
+      "country_code": "NZ",
+      "country_name": "New Zealand"
+    },
+    {
+      "name": "Auckland University of Technology",
+      "country_code": "NZ",
+      "country_name": "New Zealand"
+    },
+    {
+      "name": "University of Ibadan",
+      "country_code": "NG",
+      "country_name": "Nigeria"
+    },
+    {
+      "name": "University of Lagos",
+      "country_code": "NG",
+      "country_name": "Nigeria"
+    },
+    {
+      "name": "Obafemi Awolowo University",
+      "country_code": "NG",
+      "country_name": "Nigeria"
+    },
+    {
+      "name": "Ahmadu Bello University",
+      "country_code": "NG",
+      "country_name": "Nigeria"
+    },
+    {
+      "name": "University of Nigeria Nsukka",
+      "country_code": "NG",
+      "country_name": "Nigeria"
+    },
+    {
+      "name": "Covenant University",
+      "country_code": "NG",
+      "country_name": "Nigeria"
+    },
+    {
+      "name": "University of Oslo",
+      "country_code": "NO",
+      "country_name": "Norway"
+    },
+    {
+      "name": "Norwegian University of Science and Technology",
+      "country_code": "NO",
+      "country_name": "Norway"
+    },
+    {
+      "name": "University of Bergen",
+      "country_code": "NO",
+      "country_name": "Norway"
+    },
+    {
+      "name": "UiT The Arctic University of Norway",
+      "country_code": "NO",
+      "country_name": "Norway"
+    },
+    {
+      "name": "Norwegian University of Life Sciences",
+      "country_code": "NO",
+      "country_name": "Norway"
+    },
+    {
+      "name": "Sultan Qaboos University",
+      "country_code": "OM",
+      "country_name": "Oman"
+    },
+    {
+      "name": "University of Nizwa",
+      "country_code": "OM",
+      "country_name": "Oman"
+    },
+    {
+      "name": "German University of Technology in Oman",
+      "country_code": "OM",
+      "country_name": "Oman"
+    },
+    {
+      "name": "Quaid-i-Azam University",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "National University of Sciences and Technology",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "Lahore University of Management Sciences",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "University of the Punjab",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "COMSATS University Islamabad",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "University of Karachi",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "University of Engineering and Technology Lahore",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "Aga Khan University",
+      "country_code": "PK",
+      "country_name": "Pakistan"
+    },
+    {
+      "name": "Birzeit University",
+      "country_code": "PS",
+      "country_name": "Palestine"
+    },
+    {
+      "name": "An-Najah National University",
+      "country_code": "PS",
+      "country_name": "Palestine"
+    },
+    {
+      "name": "Al-Quds University",
+      "country_code": "PS",
+      "country_name": "Palestine"
+    },
+    {
+      "name": "National University of Asunción",
+      "country_code": "PY",
+      "country_name": "Paraguay"
+    },
+    {
+      "name": "Catholic University of Asunción",
+      "country_code": "PY",
+      "country_name": "Paraguay"
+    },
+    {
+      "name": "Pontifical Catholic University of Peru",
+      "country_code": "PE",
+      "country_name": "Peru"
+    },
+    {
+      "name": "National University of San Marcos",
+      "country_code": "PE",
+      "country_name": "Peru"
+    },
+    {
+      "name": "Peruvian University of Applied Sciences",
+      "country_code": "PE",
+      "country_name": "Peru"
+    },
+    {
+      "name": "University of Lima",
+      "country_code": "PE",
+      "country_name": "Peru"
+    },
+    {
+      "name": "University of the Pacific (Peru)",
+      "country_code": "PE",
+      "country_name": "Peru"
+    },
+    {
+      "name": "University of the Philippines",
+      "country_code": "PH",
+      "country_name": "Philippines"
+    },
+    {
+      "name": "Ateneo de Manila University",
+      "country_code": "PH",
+      "country_name": "Philippines"
+    },
+    {
+      "name": "De La Salle University",
+      "country_code": "PH",
+      "country_name": "Philippines"
+    },
+    {
+      "name": "University of Santo Tomas",
+      "country_code": "PH",
+      "country_name": "Philippines"
+    },
+    {
+      "name": "Mapúa University",
+      "country_code": "PH",
+      "country_name": "Philippines"
+    },
+    {
+      "name": "Silliman University",
+      "country_code": "PH",
+      "country_name": "Philippines"
+    },
+    {
+      "name": "University of San Carlos",
+      "country_code": "PH",
+      "country_name": "Philippines"
+    },
+    {
+      "name": "University of Warsaw",
+      "country_code": "PL",
+      "country_name": "Poland"
+    },
+    {
+      "name": "Jagiellonian University",
+      "country_code": "PL",
+      "country_name": "Poland"
+    },
+    {
+      "name": "Warsaw University of Technology",
+      "country_code": "PL",
+      "country_name": "Poland"
+    },
+    {
+      "name": "AGH University of Krakow",
+      "country_code": "PL",
+      "country_name": "Poland"
+    },
+    {
+      "name": "Adam Mickiewicz University Poznań",
+      "country_code": "PL",
+      "country_name": "Poland"
+    },
+    {
+      "name": "Wrocław University of Science and Technology",
+      "country_code": "PL",
+      "country_name": "Poland"
+    },
+    {
+      "name": "University of Lisbon",
+      "country_code": "PT",
+      "country_name": "Portugal"
+    },
+    {
+      "name": "University of Porto",
+      "country_code": "PT",
+      "country_name": "Portugal"
+    },
+    {
+      "name": "University of Coimbra",
+      "country_code": "PT",
+      "country_name": "Portugal"
+    },
+    {
+      "name": "NOVA University Lisbon",
+      "country_code": "PT",
+      "country_name": "Portugal"
+    },
+    {
+      "name": "University of Aveiro",
+      "country_code": "PT",
+      "country_name": "Portugal"
+    },
+    {
+      "name": "Qatar University",
+      "country_code": "QA",
+      "country_name": "Qatar"
+    },
+    {
+      "name": "Hamad Bin Khalifa University",
+      "country_code": "QA",
+      "country_name": "Qatar"
+    },
+    {
+      "name": "Georgetown University in Qatar",
+      "country_code": "QA",
+      "country_name": "Qatar"
+    },
+    {
+      "name": "University of Bucharest",
+      "country_code": "RO",
+      "country_name": "Romania"
+    },
+    {
+      "name": "Babeș-Bolyai University",
+      "country_code": "RO",
+      "country_name": "Romania"
+    },
+    {
+      "name": "Politehnica University of Bucharest",
+      "country_code": "RO",
+      "country_name": "Romania"
+    },
+    {
+      "name": "Alexandru Ioan Cuza University",
+      "country_code": "RO",
+      "country_name": "Romania"
+    },
+    {
+      "name": "West University of Timișoara",
+      "country_code": "RO",
+      "country_name": "Romania"
+    },
+    {
+      "name": "Lomonosov Moscow State University",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "Saint Petersburg State University",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "Moscow Institute of Physics and Technology",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "National Research Nuclear University MEPhI",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "Novosibirsk State University",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "Tomsk State University",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "ITMO University",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "Higher School of Economics",
+      "country_code": "RU",
+      "country_name": "Russia"
+    },
+    {
+      "name": "University of Rwanda",
+      "country_code": "RW",
+      "country_name": "Rwanda"
+    },
+    {
+      "name": "Carnegie Mellon University Africa",
+      "country_code": "RW",
+      "country_name": "Rwanda"
+    },
+    {
+      "name": "King Saud University",
+      "country_code": "SA",
+      "country_name": "Saudi Arabia"
+    },
+    {
+      "name": "King Abdulaziz University",
+      "country_code": "SA",
+      "country_name": "Saudi Arabia"
+    },
+    {
+      "name": "King Fahd University of Petroleum and Minerals",
+      "country_code": "SA",
+      "country_name": "Saudi Arabia"
+    },
+    {
+      "name": "King Abdullah University of Science and Technology",
+      "country_code": "SA",
+      "country_name": "Saudi Arabia"
+    },
+    {
+      "name": "Princess Nourah bint Abdulrahman University",
+      "country_code": "SA",
+      "country_name": "Saudi Arabia"
+    },
+    {
+      "name": "Imam Abdulrahman Bin Faisal University",
+      "country_code": "SA",
+      "country_name": "Saudi Arabia"
+    },
+    {
+      "name": "Umm Al-Qura University",
+      "country_code": "SA",
+      "country_name": "Saudi Arabia"
+    },
+    {
+      "name": "Cheikh Anta Diop University",
+      "country_code": "SN",
+      "country_name": "Senegal"
+    },
+    {
+      "name": "Gaston Berger University",
+      "country_code": "SN",
+      "country_name": "Senegal"
+    },
+    {
+      "name": "University of Belgrade",
+      "country_code": "RS",
+      "country_name": "Serbia"
+    },
+    {
+      "name": "University of Novi Sad",
+      "country_code": "RS",
+      "country_name": "Serbia"
+    },
+    {
+      "name": "University of Niš",
+      "country_code": "RS",
+      "country_name": "Serbia"
+    },
+    {
+      "name": "National University of Singapore",
+      "country_code": "SG",
+      "country_name": "Singapore"
+    },
+    {
+      "name": "Nanyang Technological University",
+      "country_code": "SG",
+      "country_name": "Singapore"
+    },
+    {
+      "name": "Singapore Management University",
+      "country_code": "SG",
+      "country_name": "Singapore"
+    },
+    {
+      "name": "Singapore University of Technology and Design",
+      "country_code": "SG",
+      "country_name": "Singapore"
+    },
+    {
+      "name": "Singapore Institute of Technology",
+      "country_code": "SG",
+      "country_name": "Singapore"
+    },
+    {
+      "name": "Singapore University of Social Sciences",
+      "country_code": "SG",
+      "country_name": "Singapore"
+    },
+    {
+      "name": "Comenius University Bratislava",
+      "country_code": "SK",
+      "country_name": "Slovakia"
+    },
+    {
+      "name": "Slovak University of Technology in Bratislava",
+      "country_code": "SK",
+      "country_name": "Slovakia"
+    },
+    {
+      "name": "Technical University of Košice",
+      "country_code": "SK",
+      "country_name": "Slovakia"
+    },
+    {
+      "name": "University of Ljubljana",
+      "country_code": "SI",
+      "country_name": "Slovenia"
+    },
+    {
+      "name": "University of Maribor",
+      "country_code": "SI",
+      "country_name": "Slovenia"
+    },
+    {
+      "name": "University of Primorska",
+      "country_code": "SI",
+      "country_name": "Slovenia"
+    },
+    {
+      "name": "University of Cape Town",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "University of the Witwatersrand",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "Stellenbosch University",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "University of Pretoria",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "University of Johannesburg",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "University of KwaZulu-Natal",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "Rhodes University",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "University of the Western Cape",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "University of South Africa",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "North-West University",
+      "country_code": "ZA",
+      "country_name": "South Africa"
+    },
+    {
+      "name": "Seoul National University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "KAIST",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "Yonsei University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "Korea University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "POSTECH",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "Sungkyunkwan University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "Hanyang University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "Kyung Hee University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "Ewha Womans University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "Pusan National University",
+      "country_code": "KR",
+      "country_name": "South Korea"
+    },
+    {
+      "name": "University of Barcelona",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "Autonomous University of Barcelona",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "Complutense University of Madrid",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "Autonomous University of Madrid",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "Pompeu Fabra University",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "University of Valencia",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "University of Granada",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "Polytechnic University of Madrid",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "University of Navarra",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "University of Seville",
+      "country_code": "ES",
+      "country_name": "Spain"
+    },
+    {
+      "name": "University of Colombo",
+      "country_code": "LK",
+      "country_name": "Sri Lanka"
+    },
+    {
+      "name": "University of Peradeniya",
+      "country_code": "LK",
+      "country_name": "Sri Lanka"
+    },
+    {
+      "name": "University of Moratuwa",
+      "country_code": "LK",
+      "country_name": "Sri Lanka"
+    },
+    {
+      "name": "University of Sri Jayewardenepura",
+      "country_code": "LK",
+      "country_name": "Sri Lanka"
+    },
+    {
+      "name": "University of Kelaniya",
+      "country_code": "LK",
+      "country_name": "Sri Lanka"
+    },
+    {
+      "name": "Lund University",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "Uppsala University",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "KTH Royal Institute of Technology",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "Chalmers University of Technology",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "Stockholm University",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "University of Gothenburg",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "Linköping University",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "Umeå University",
+      "country_code": "SE",
+      "country_name": "Sweden"
+    },
+    {
+      "name": "ETH Zurich",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "EPFL",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "University of Zurich",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "University of Geneva",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "University of Basel",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "University of Bern",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "University of Lausanne",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "University of St. Gallen",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "University of Fribourg",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "Università della Svizzera italiana",
+      "country_code": "CH",
+      "country_name": "Switzerland"
+    },
+    {
+      "name": "National Taiwan University",
+      "country_code": "TW",
+      "country_name": "Taiwan"
+    },
+    {
+      "name": "National Tsing Hua University",
+      "country_code": "TW",
+      "country_name": "Taiwan"
+    },
+    {
+      "name": "National Yang Ming Chiao Tung University",
+      "country_code": "TW",
+      "country_name": "Taiwan"
+    },
+    {
+      "name": "National Cheng Kung University",
+      "country_code": "TW",
+      "country_name": "Taiwan"
+    },
+    {
+      "name": "National Taiwan University of Science and Technology",
+      "country_code": "TW",
+      "country_name": "Taiwan"
+    },
+    {
+      "name": "National Central University",
+      "country_code": "TW",
+      "country_name": "Taiwan"
+    },
+    {
+      "name": "University of Dar es Salaam",
+      "country_code": "TZ",
+      "country_name": "Tanzania"
+    },
+    {
+      "name": "Sokoine University of Agriculture",
+      "country_code": "TZ",
+      "country_name": "Tanzania"
+    },
+    {
+      "name": "Muhimbili University of Health and Allied Sciences",
+      "country_code": "TZ",
+      "country_name": "Tanzania"
+    },
+    {
+      "name": "Chulalongkorn University",
+      "country_code": "TH",
+      "country_name": "Thailand"
+    },
+    {
+      "name": "Mahidol University",
+      "country_code": "TH",
+      "country_name": "Thailand"
+    },
+    {
+      "name": "Chiang Mai University",
+      "country_code": "TH",
+      "country_name": "Thailand"
+    },
+    {
+      "name": "Thammasat University",
+      "country_code": "TH",
+      "country_name": "Thailand"
+    },
+    {
+      "name": "Kasetsart University",
+      "country_code": "TH",
+      "country_name": "Thailand"
+    },
+    {
+      "name": "Prince of Songkla University",
+      "country_code": "TH",
+      "country_name": "Thailand"
+    },
+    {
+      "name": "King Mongkut's University of Technology Thonburi",
+      "country_code": "TH",
+      "country_name": "Thailand"
+    },
+    {
+      "name": "University of Tunis El Manar",
+      "country_code": "TN",
+      "country_name": "Tunisia"
+    },
+    {
+      "name": "University of Carthage",
+      "country_code": "TN",
+      "country_name": "Tunisia"
+    },
+    {
+      "name": "University of Sfax",
+      "country_code": "TN",
+      "country_name": "Tunisia"
+    },
+    {
+      "name": "Middle East Technical University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Boğaziçi University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Koç University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Sabancı University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Istanbul Technical University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Bilkent University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Hacettepe University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Istanbul University",
+      "country_code": "TR",
+      "country_name": "Türkiye"
+    },
+    {
+      "name": "Makerere University",
+      "country_code": "UG",
+      "country_name": "Uganda"
+    },
+    {
+      "name": "Kyambogo University",
+      "country_code": "UG",
+      "country_name": "Uganda"
+    },
+    {
+      "name": "Uganda Christian University",
+      "country_code": "UG",
+      "country_name": "Uganda"
+    },
+    {
+      "name": "Taras Shevchenko National University of Kyiv",
+      "country_code": "UA",
+      "country_name": "Ukraine"
+    },
+    {
+      "name": "National Technical University of Ukraine Kyiv Polytechnic Institute",
+      "country_code": "UA",
+      "country_name": "Ukraine"
+    },
+    {
+      "name": "Ivan Franko National University of Lviv",
+      "country_code": "UA",
+      "country_name": "Ukraine"
+    },
+    {
+      "name": "V. N. Karazin Kharkiv National University",
+      "country_code": "UA",
+      "country_name": "Ukraine"
+    },
+    {
+      "name": "Lviv Polytechnic National University",
+      "country_code": "UA",
+      "country_name": "Ukraine"
+    },
+    {
+      "name": "United Arab Emirates University",
+      "country_code": "AE",
+      "country_name": "United Arab Emirates"
+    },
+    {
+      "name": "Khalifa University",
+      "country_code": "AE",
+      "country_name": "United Arab Emirates"
+    },
+    {
+      "name": "American University of Sharjah",
+      "country_code": "AE",
+      "country_name": "United Arab Emirates"
+    },
+    {
+      "name": "University of Sharjah",
+      "country_code": "AE",
+      "country_name": "United Arab Emirates"
+    },
+    {
+      "name": "New York University Abu Dhabi",
+      "country_code": "AE",
+      "country_name": "United Arab Emirates"
+    },
+    {
+      "name": "Zayed University",
+      "country_code": "AE",
+      "country_name": "United Arab Emirates"
+    },
+    {
+      "name": "Abu Dhabi University",
+      "country_code": "AE",
+      "country_name": "United Arab Emirates"
+    },
+    {
+      "name": "University of Oxford",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Cambridge",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "Imperial College London",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University College London",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "King's College London",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Edinburgh",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Manchester",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Bristol",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Warwick",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Glasgow",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Birmingham",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Leeds",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Southampton",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Nottingham",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Sheffield",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Exeter",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "Durham University",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of York",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Liverpool",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "Newcastle University",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "Queen Mary University of London",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "Cardiff University",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "Queen's University Belfast",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of St Andrews",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "University of Bath",
+      "country_code": "GB",
+      "country_name": "United Kingdom"
+    },
+    {
+      "name": "Harvard University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Stanford University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Massachusetts Institute of Technology",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "California Institute of Technology",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Princeton University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Yale University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Columbia University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Chicago",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Pennsylvania",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Johns Hopkins University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Duke University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Northwestern University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Cornell University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Brown University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Dartmouth College",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of California Berkeley",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of California Los Angeles",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of California San Diego",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Michigan",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Washington",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Wisconsin-Madison",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Texas at Austin",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Georgia Institute of Technology",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Carnegie Mellon University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "New York University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Southern California",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Boston University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Illinois Urbana-Champaign",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Purdue University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Pennsylvania State University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Ohio State University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of North Carolina at Chapel Hill",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of Florida",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Texas A&M University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "Arizona State University",
+      "country_code": "US",
+      "country_name": "United States"
+    },
+    {
+      "name": "University of the Republic (Uruguay)",
+      "country_code": "UY",
+      "country_name": "Uruguay"
+    },
+    {
+      "name": "Catholic University of Uruguay",
+      "country_code": "UY",
+      "country_name": "Uruguay"
+    },
+    {
+      "name": "Central University of Venezuela",
+      "country_code": "VE",
+      "country_name": "Venezuela"
+    },
+    {
+      "name": "Simón Bolívar University",
+      "country_code": "VE",
+      "country_name": "Venezuela"
+    },
+    {
+      "name": "University of the Andes (Venezuela)",
+      "country_code": "VE",
+      "country_name": "Venezuela"
+    },
+    {
+      "name": "Vietnam National University Hanoi",
+      "country_code": "VN",
+      "country_name": "Vietnam"
+    },
+    {
+      "name": "Vietnam National University Ho Chi Minh City",
+      "country_code": "VN",
+      "country_name": "Vietnam"
+    },
+    {
+      "name": "Hanoi University of Science and Technology",
+      "country_code": "VN",
+      "country_name": "Vietnam"
+    },
+    {
+      "name": "Ton Duc Thang University",
+      "country_code": "VN",
+      "country_name": "Vietnam"
+    },
+    {
+      "name": "Duy Tan University",
+      "country_code": "VN",
+      "country_name": "Vietnam"
+    },
+    {
+      "name": "University of Economics Ho Chi Minh City",
+      "country_code": "VN",
+      "country_name": "Vietnam"
+    },
+    {
+      "name": "University of Zambia",
+      "country_code": "ZM",
+      "country_name": "Zambia"
+    },
+    {
+      "name": "Copperbelt University",
+      "country_code": "ZM",
+      "country_name": "Zambia"
+    },
+    {
+      "name": "Mulungushi University",
+      "country_code": "ZM",
+      "country_name": "Zambia"
+    },
+    {
+      "name": "University of Zimbabwe",
+      "country_code": "ZW",
+      "country_name": "Zimbabwe"
+    },
+    {
+      "name": "National University of Science and Technology Zimbabwe",
+      "country_code": "ZW",
+      "country_name": "Zimbabwe"
+    },
+    {
+      "name": "Midlands State University",
+      "country_code": "ZW",
+      "country_name": "Zimbabwe"
+    }
+  ]
+}

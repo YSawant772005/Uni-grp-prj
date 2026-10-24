@@ -24,13 +24,16 @@ from app.models import (
 
 
 def list_countries(db: Session) -> list[dict]:
+    # Count in separate correlated subqueries; joining cities to universities
+    # multiplied the number of institutions in countries with multiple cities.
+    city_count = (select(func.count(City.id)).where(City.country_code == Country.code)
+                  .correlate(Country).scalar_subquery())
+    university_count = (select(func.count(University.id)).where(University.country_code == Country.code)
+                        .correlate(Country).scalar_subquery())
     rows = db.execute(
-        select(Country,
-               func.count(City.id).label("city_count"),
-               func.count(University.id).label("university_count"))
-        .outerjoin(City, City.country_code == Country.code)
-        .outerjoin(University, University.country_code == Country.code)
-        .group_by(Country.code).order_by(Country.name)).all()
+        select(Country, city_count.label("city_count"),
+               university_count.label("university_count"))
+        .order_by(Country.name)).all()
     return [{"code": c.code, "name": c.name, "region": c.region,
              "official_study_url": c.official_study_url,
              "official_immigration_url": c.official_immigration_url,

@@ -81,6 +81,7 @@ export interface Profile {
   id: string
   user_id: string
   intended_degree_level: string | null
+  desired_degree_title: string | null
   field_key: string | null
   country_mode: string | null
   risk_tolerance: string | null
@@ -305,6 +306,7 @@ export interface RecommendationRun {
   excluded_count: number
   data_warnings: string[]
   result_summary: Record<TierKey, number> | null
+  matching_preferences?: { degree_title: string | null; specialization: string | null }
 }
 
 export interface RunListItem {

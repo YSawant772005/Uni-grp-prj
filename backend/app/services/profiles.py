@@ -37,7 +37,7 @@ from app.models import (
 
 MAX_GRADUATION_YEAR = datetime.now(timezone.utc).year + 10
 _SCALAR_FIELDS = [
-    "intended_degree_level", "country_mode", "risk_tolerance", "academic_degree",
+    "intended_degree_level", "desired_degree_title", "country_mode", "risk_tolerance", "academic_degree",
     "academic_major", "institution_name", "grade_value", "grade_scale_min",
     "grade_scale_max", "grade_system", "graduation_status", "graduation_year",
     "backlog_count", "english_test_status", "english_test_type", "english_test_overall",
@@ -235,6 +235,7 @@ def serialize_profile(profile: StudentProfile, field_key: str | None = None) -> 
         "id": profile.id,
         "user_id": profile.user_id,
         "intended_degree_level": profile.intended_degree_level,
+        "desired_degree_title": profile.desired_degree_title,
         "field_key": field_key,
         "country_mode": profile.country_mode,
         "risk_tolerance": profile.risk_tolerance,

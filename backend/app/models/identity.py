@@ -129,6 +129,7 @@ class StudentProfile(Base, UUIDPk, TimestampMixin):
     country_mode = enum_col(CountryMode, nullable=True)
     risk_tolerance = enum_col(RiskTolerance, nullable=True)
 
+    desired_degree_title: Mapped[str | None] = mapped_column(String(200))
     academic_degree: Mapped[str | None] = mapped_column(String(160))
     academic_major: Mapped[str | None] = mapped_column(String(160))
     institution_name: Mapped[str | None] = mapped_column(String(200))

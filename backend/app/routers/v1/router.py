@@ -13,10 +13,13 @@ from app.routers.v1 import (  # noqa: I001
     recommendations,
 )
 
+from app.routers.v1 import universities as college_universities
+
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(programs.router)
+api_router.include_router(college_universities.router)
 api_router.include_router(profile.router)
 api_router.include_router(recommendations.router)
 api_router.include_router(library.router)

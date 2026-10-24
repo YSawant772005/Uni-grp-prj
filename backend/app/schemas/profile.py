@@ -25,6 +25,7 @@ class ProfileIn(BaseModel):
     field: str | None = None
     country_mode: str | None = None
     risk_tolerance: str | None = None
+    desired_degree_title: str | None = Field(default=None, max_length=200)
     academic_degree: str | None = None
     academic_major: str | None = None
     institution_name: str | None = None
@@ -66,6 +67,7 @@ class OnboardingCompleteIn(BaseModel):
     intended_degree_level: str
     field: str
     country_preferences: list[CountryPreferenceIn] = Field(min_length=1)
+    desired_degree_title: str | None = Field(default=None, max_length=200)
     academic_degree: str
     institution_name: str
     grade_value: Decimal
@@ -119,6 +121,7 @@ class ProfileOut(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    desired_degree_title: str | None = None
     intended_degree_level: str
     field_key: str | None = None
     country_mode: str | None = None

@@ -62,6 +62,8 @@ def _tuition_items(db: Session, program: Program) -> dict:
             repeats = (fee.amount * Decimal(months) / Decimal(12)).quantize(Decimal("0.01"))
         elif fee.period == "month" and months:
             repeats = fee.amount * months
+        if fee.student_category == "fictional_demo_qa":
+            note = (note + " " if note else "") + "FICTIONAL DEMO tuition estimate for testing only; NOT a verified university fee."
         total = repeats
         existing = items.get(key)
         if existing and existing["value"] is not None:
@@ -98,9 +100,11 @@ def _living_items(db: Session, program: Program, scenario: str) -> dict:
                                 note="Living-cost categories use mixed currencies.")}
     monthly = sum(Decimal(getattr(r, column)) for r in rows)
     total = (monthly * months).quantize(Decimal("0.01")) if months else None
+    demo_living_note = (" FICTIONAL DEMO living-cost estimate for testing only."
+                        if city.slug.startswith("fictional-qa-cost-city-") else "")
     return {"living": _money(total, currencies.pop(), "full_program", "estimated",
                              note=f"{scenario} scenario: sum of {len(rows)} categories "
-                                  f"for {city.name}, {months} months.")}
+                                  f"for {city.name}, {months} months." + demo_living_note)}
 
 
 def _unavailable_components(have: set[str]) -> list[dict]:

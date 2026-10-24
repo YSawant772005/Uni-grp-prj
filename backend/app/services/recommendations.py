@@ -28,6 +28,7 @@ from app.models import (
 )
 from app.services import eligibility as eligibility_engine
 from app.services import scoring as scoring_engine
+from app.services.degree_matching import exact_award_match, is_known_award
 
 DEFAULT_LIMIT_PER_TIER = 20
 
@@ -60,6 +61,15 @@ def _hard_constraints(db: Session, profile, programs: list[Program], filters: di
     allowed, excluded = [], []
     for program in programs:
         reasons = []
+        # Student preference is an eligibility constraint, NOT a fit-score bonus.
+        # Legacy profiles without a named award retain legacy matching until edited.
+        if profile.desired_degree_title:
+            if program.degree_level != profile.intended_degree_level:
+                reasons.append("different_degree_level")
+            if not exact_award_match(profile.desired_degree_title, program.canonical_name):
+                reasons.append("different_degree_title_or_unverified_award")
+            if profile.field_id is not None and program.field_id != profile.field_id:
+                reasons.append("different_specialization_or_unverified_field")
         if mandatory and program.country_code not in mandatory:
             reasons.append("outside_mandatory_countries")
         if budget_amount is not None:
@@ -77,6 +87,7 @@ def _hard_constraints(db: Session, profile, programs: list[Program], filters: di
 def _snapshot(profile) -> dict:
     return {
         "intended_degree_level": profile.intended_degree_level,
+        "desired_degree_title": profile.desired_degree_title,
         "field_id": str(profile.field_id) if profile.field_id else None,
         "grade_value": float(profile.grade_value) if profile.grade_value is not None else None,
         "grade_scale_max": float(profile.grade_scale_max) if profile.grade_scale_max is not None else None,
@@ -129,6 +140,10 @@ def _recognition(db: Session, program) -> str | None:
 def create_run(db: Session, user, profile, filters: dict | None, limit_per_tier: int | None):
     filters = filters or {}
     limit_per_tier = limit_per_tier or DEFAULT_LIMIT_PER_TIER
+    if profile.desired_degree_title and not is_known_award(profile.desired_degree_title):
+        raise ApiError(422, "INVALID_DEGREE_TITLE", "Selected Master's degree title is not recognized.",
+                       [{"field": "desired_degree_title", "code": "unknown_value",
+                         "message": "Choose a named Master's degree from the available titles."}])
     ruleset = _active_ruleset(db)
     weights = _weights(ruleset)
     tier_limits = (ruleset.scoring_config or {}).get("tiers", {})
@@ -144,9 +159,16 @@ def create_run(db: Session, user, profile, filters: dict | None, limit_per_tier:
 
     allowed, excluded = _hard_constraints(db, profile, programs, filters)
 
+    selected_field = db.get(Field, profile.field_id) if profile.field_id else None
     run = RecommendationRun(
         user_id=user.id, profile_id=profile.id,
-        profile_snapshot={"profile": _snapshot(profile), "filters": filters},
+        profile_snapshot={
+            "profile": _snapshot(profile), "filters": filters,
+            "matching_preferences": {
+                "degree_title": profile.desired_degree_title,
+                "specialization": selected_field.display_name if selected_field else None,
+            },
+        },
         ruleset_id=ruleset.id, data_snapshot_at=datetime.now(timezone.utc),
         status="running", started_at=datetime.now(timezone.utc),
         input_hash=hashlib.sha256(
@@ -157,7 +179,7 @@ def create_run(db: Session, user, profile, filters: dict | None, limit_per_tier:
     db.flush()
 
     tiers: dict[str, list] = {"ambitious": [], "target": [], "safer_fit": []}
-    warnings: list[str] = []
+    warnings: list[str] = ([] if profile.desired_degree_title else ["desired_degree_title_missing_recomplete_profile_for_exact_matching"])
     eligible_count = 0
 
     for program, reasons in excluded:
@@ -228,6 +250,8 @@ def create_run(db: Session, user, profile, filters: dict | None, limit_per_tier:
     run.status = "succeeded"
     run.completed_at = datetime.now(timezone.utc)
     run.result_summary = {t: len(v) for t, v in tiers.items()}
+    if profile.desired_degree_title and not any(tiers.values()):
+        warnings.append("no_exact_degree_and_specialization_match_in_current_catalogue")
     run.warning_summary = sorted(set(warnings))
     db.flush()
     return run, tiers, len(excluded)
@@ -240,13 +264,14 @@ def _positive_reasons(breakdown: list[dict]) -> list[str]:
 
 
 def _persist_evaluations(db: Session, item: RecommendationItem, ev: dict) -> None:
+    from fastapi.encoders import jsonable_encoder
     for r in ev["requirements"]:
         db.add(RequirementEvaluation(
             recommendation_item_id=item.id,
             admission_requirement_id=r["requirement_id"],
             status=r["status"],
-            applicant_value_json={"value": r["evaluated_value"]},
-            expected_value_json=r["expected_value"] or {},
+            applicant_value_json=jsonable_encoder({"value": r["evaluated_value"]}),
+            expected_value_json=jsonable_encoder(r["expected_value"] or {}),
             explanation=r["explanation"],
         ))
     db.flush()
@@ -292,6 +317,7 @@ def run_out(db: Session, run: RecommendationRun) -> dict:
         "excluded_count": excluded_count,
         "data_warnings": run.warning_summary or [],
         "result_summary": run.result_summary,
+        "matching_preferences": (run.profile_snapshot or {}).get("matching_preferences", {}),
     }
 
 

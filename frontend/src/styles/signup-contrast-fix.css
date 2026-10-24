@@ -1,0 +1,26 @@
+/* Ensure the public Sign up / Get started CTA stays readable even when
+   .main-nav a and active-link styles from older patches are loaded later. */
+.site-header .main-nav a.btn.btn-primary,
+.site-header .main-nav a.btn.btn-primary:link,
+.site-header .main-nav a.btn.btn-primary:visited,
+.site-header .main-nav a.btn.btn-primary.router-link-exact-active {
+  background: #07835f !important;
+  border: 1px solid #07835f !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  box-shadow: 0 5px 14px rgba(0,110,76,.14);
+}
+.site-header .main-nav a.btn.btn-primary:hover,
+.site-header .main-nav a.btn.btn-primary:focus-visible {
+  background: #056848 !important;
+  border-color: #056848 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+.site-header .main-nav a.btn.btn-primary:focus-visible {
+  outline: 3px solid #a8ead0;
+  outline-offset: 2px;
+}

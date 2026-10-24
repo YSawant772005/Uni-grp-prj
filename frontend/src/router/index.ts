@@ -59,12 +59,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../features/onboarding/OnboardingView.vue'),
         meta: { title: 'Build your profile', requiresAuth: true },
       },
+      {
+        path: 'processing-profile',
+        name: 'processing-profile',
+        component: () => import('../features/onboarding/ProcessingProfileView.vue'),
+        meta: { title: 'Processing your profile', requiresAuth: true },
+      },
     ],
   },
   {
     path: '/',
     component: () => import('../layouts/AppLayout.vue'),
     children: [
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: () => import('../features/dashboard/DashboardView.vue'),
+        meta: { title: 'Student Dashboard', requiresAuth: true },
+      },
       {
         path: 'profile',
         name: 'profile',
@@ -226,7 +238,7 @@ router.beforeEach(async (to) => {
   await auth.ensureLoaded()
 
   if (to.meta.guestOnly && auth.isAuthenticated) {
-    return safeRedirect(to.query.redirect) ?? '/'
+    return safeRedirect(to.query.redirect) ?? '/dashboard'
   }
 
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)

@@ -5,6 +5,8 @@ import { router } from './router'
 import { setUnauthorizedHandler } from './services/api/client'
 import { useAuthStore } from './stores/auth'
 import './styles.css'
+import './styles/signup-contrast-fix.css'
+import './uni-ui-upgrade'
 
 const app = createApp(App)
 const pinia = createPinia()
